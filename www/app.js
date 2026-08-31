@@ -296,16 +296,22 @@ function sanitizeVaultFolder(name) {
 
 /* --- FS_ADAPTER --- */
 const FS_ADAPTER = (() => {
-  const cap = (() => {
-    try { return (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) ? window.Capacitor : null; } catch { return null; }
-  })();
-  const isNative = Boolean(cap && cap.isNative);
-  const Filesystem = cap ? cap.Plugins.Filesystem : null;
+  function resolveCap() {
+    try {
+      if (typeof window === 'undefined' || !window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.Filesystem) return null;
+      const cap = window.Capacitor;
+      const native = typeof cap.isNativePlatform === 'function' ? !!cap.isNativePlatform() : cap.isNative === true;
+      return native ? cap : null;
+    } catch { return null; }
+  }
+  function isNativeNow() { return Boolean(resolveCap()); }
 
   async function nativeReadFile(folder, name) {
+    const cap = resolveCap();
+    if (!cap) return webReadFile(folder, name);
     const path = `${folder}/${name}`;
     try {
-      const res = await Filesystem.readFile({ path, directory: 'DOCUMENTS', encoding: 'utf8' });
+      const res = await cap.Plugins.Filesystem.readFile({ path, directory: 'DOCUMENTS', encoding: 'utf8' });
       const data = res && (res.data !== undefined ? res.data : res);
       if (typeof data === 'string') return data;
       if (data instanceof Blob) return await data.text();
@@ -316,9 +322,10 @@ const FS_ADAPTER = (() => {
     }
   }
   async function nativeWriteFile(folder, name, content) {
-    const dir = folder;
-    try { await Filesystem.mkdir({ path: dir, directory: 'DOCUMENTS', recursive: true }); } catch (_) {}
-    await Filesystem.writeFile({ path: `${folder}/${name}`, data: content, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true });
+    const cap = resolveCap();
+    if (!cap) { webWriteFile(folder, name, content); return; }
+    try { await cap.Plugins.Filesystem.mkdir({ path: folder, directory: 'DOCUMENTS', recursive: true }); } catch (_) {}
+    await cap.Plugins.Filesystem.writeFile({ path: `${folder}/${name}`, data: content, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true });
   }
 
   function webKey(folder, name) { return `vault_${folder}_${name}`; }
@@ -330,12 +337,12 @@ const FS_ADAPTER = (() => {
   }
 
   return {
-    backend: isNative ? 'native' : 'web',
-    isNative,
-    async readFile(folder, name) { return isNative ? nativeReadFile(folder, name) : webReadFile(folder, name); },
-    async writeFile(folder, name, content) { return isNative ? nativeWriteFile(folder, name, content) : webWriteFile(folder, name, content); },
+    get backend() { return isNativeNow() ? 'native' : 'web'; },
+    get isNative() { return isNativeNow(); },
+    async readFile(folder, name) { return isNativeNow() ? nativeReadFile(folder, name) : webReadFile(folder, name); },
+    async writeFile(folder, name, content) { return isNativeNow() ? nativeWriteFile(folder, name, content) : webWriteFile(folder, name, content); },
     exists(folder, name) {
-      if (isNative) return nativeReadFile(folder, name).then(v => v !== null).catch(() => false);
+      if (isNativeNow()) return nativeReadFile(folder, name).then(v => v !== null).catch(() => false);
       return webReadFile(folder, name) !== null;
     }
   };
@@ -406,7 +413,7 @@ function parseMealsMd(text) {
       meal = null;
       if (/^# Meal Library/i.test(line)) continue;
     }
-    const headerMatch = line.match(/^(.*?)\s*-\s*([A-Za-z0-9\/\s]+)\s*\(\s*(\d+(?:\.\d+)?)\s*g\s*\)$/i);
+    const headerMatch = line.match(/^(.+)\s*-\s*([A-Za-z0-9\/\s-]+)\s*\(\s*(\d+(?:\.\d+)?)\s*g\s*\)$/i);
     if (headerMatch) {
       meal = { id: `m-${stamp}-${meals.length}`, name: headerMatch[1].trim().slice(0, LIMITS.routineName), cat: headerMatch[2].trim(), defaultMeal: headerMatch[2].trim(), defaultGrams: vClampNum(headerMatch[3], 1, 5000, 100), p100: 0, c100: 0, f100: 0, cals100: 0, liked: false };
       meals.push(meal);
@@ -414,6 +421,12 @@ function parseMealsMd(text) {
     }
     if (line.startsWith('-')) line = line.slice(1).trim();
     if (/^liked:\s*true/i.test(line) || /^liked$/i.test(line)) { if (meal) meal.liked = true; continue; }
+    const mealIdMatch = line.match(/^id:\s*(\S+)$/i);
+    if (mealIdMatch && meal) {
+      const cleanId = mealIdMatch[1].replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (cleanId && !meals.some(m => m.id === cleanId)) meal.id = cleanId;
+      continue;
+    }
     const macroMatch = line.match(/^Per100g\s+(\d+(?:\.\d+)?)\s*cal\s+(\d+(?:\.\d+)?)\s*pro\s+(\d+(?:\.\d+)?)\s*carb\s+(\d+(?:\.\d+)?)\s*fat$/i);
     if (macroMatch && meal) {
       meal.cals100 = Math.round(Number(macroMatch[1]));
@@ -444,31 +457,34 @@ function parseTrainingLogsMd(text) {
     if (parts.length < 2) continue;
     const exerciseId = String(parts[0]).replace(/^#/, '').trim();
     if (!VALID_EXERCISE_IDS.has(exerciseId)) continue;
-    const idMatch = line.match(/id:\s*(\d+)/);
+    const idMatch = line.match(/id:\s*([^\s|]+)\s*$/i);
     const id = idMatch ? idMatch[1] : `log-${currentDate}-${logs.length}`;
     const notesMatch = line.match(/notes:\s*(.*?)(?:\s*\|\s*id:|$)/i);
     const notes = notesMatch ? notesMatch[1].slice(0, LIMITS.notes).trim() : '';
-    const log = { id, exerciseId, date: currentDate, notes, createdAt: Number(id) || Date.now() };
-    if (/\bintervals?\b/i.test(line) || /\bmin\b/i.test(parts.slice(1).join(' '))) {
-      const intervalMatch = line.match(/(\d+)\s*intervals?/);
+    const log = { id, exerciseId, date: currentDate, notes, createdAt: Number((id.match(/\d{10,}/) || [])[0]) || Date.now() };
+    const notesIdx = line.search(/notes:/i);
+    const dataLine = notesIdx >= 0 ? line.slice(0, notesIdx) : line;
+    const dataParts = dataLine.split('|').map(p => p.trim());
+    if (/\bintervals?\b/i.test(dataLine) || /\bmin\b/i.test(dataParts.slice(1).join(' '))) {
+      const intervalMatch = dataLine.match(/(\d+)\s*intervals?/);
       log.intervals = vClampNum(intervalMatch ? intervalMatch[1] : 1, 1, LIMITS.sets, 1);
-      const durMatch = line.match(/([\d.,\s]+)\s*min/);
+      const durMatch = dataLine.match(/([\d.,\s]+)\s*min/);
       if (durMatch) log.setDurations = durMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.duration, 0)).filter(v => v > 0);
-      const distMatch = line.match(/([\d.,\s]+)\s*km/);
+      const distMatch = dataLine.match(/([\d.,\s]+)\s*km/);
       if (distMatch) log.setDistances = distMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.distance, 0)).filter(v => v > 0);
       logs.push(log);
     } else {
-      const setsMatch = line.match(/(\d+)\s*sets?/);
+      const setsMatch = dataLine.match(/(\d+)\s*sets?/);
       log.sets = vClampNum(setsMatch ? setsMatch[1] : 1, 1, LIMITS.sets, DEFAULTS.sets);
-      const repsMatch = parts.find(p => /reps?/i.test(p));
+      const repsMatch = dataParts.find(p => /reps?/i.test(p));
       if (repsMatch) {
         const nums = repsMatch.replace(/reps?/i, '').trim();
         log.setReps = nums.split(',').map(s => vClampNum(s.trim(), 1, LIMITS.reps, DEFAULTS.reps));
       } else {
-        const repNum = line.match(/(\d+)\s*x\s*(\d+)/);
+        const repNum = dataLine.match(/(\d+)\s*x\s*(\d+)/);
         log.reps = vClampNum(repNum ? repNum[2] : DEFAULTS.reps, 1, LIMITS.reps, DEFAULTS.reps);
       }
-      const weightMatch = parts.find(p => /kg/i.test(p));
+      const weightMatch = dataParts.find(p => /kg/i.test(p));
       if (weightMatch) {
         const nums = weightMatch.replace(/kg/i, '').trim();
         if (nums) log.setWeights = nums.split(',').map(s => { const v = Number(s.trim()); return Number.isFinite(v) && v > 0 ? Math.min(LIMITS.weight, v) : null; }).filter(v => v !== null);
@@ -503,7 +519,7 @@ function parseNutritionDiaryMd(text) {
     const mealMatch = line.match(/^(.*?)\s*\|\s*(\d+)\s*kcal\s*\|\s*([\d.]+)\s*p\s*·\s*([\d.]+)\s*c\s*·\s*([\d.]+)\s*f(?:\s*\|\s*id:\s*(\d+))?$/i);
     if (mealMatch) {
       history[currentDate].meals.push({
-        id: mealMatch[5] ? String(mealMatch[5]) : String(Date.now() + history[currentDate].meals.length),
+        id: mealMatch[6] ? String(mealMatch[6]) : String(Date.now() + history[currentDate].meals.length),
         name: mealMatch[1].trim().slice(0, LIMITS.routineName),
         cals: vClampNum(mealMatch[2], 0, 50000, 0),
         p: Math.round(vClampNum(mealMatch[3], 0, 999, 0) * 10) / 10,
@@ -591,6 +607,7 @@ function mealsToMd(foodDb) {
     if (meal.id === 'custom') continue;
     lines.push(`${meal.name} - ${meal.cat || 'Other'} (${meal.defaultGrams || 100}g)`);
     lines.push(`Per100g ${meal.cals100}cal ${meal.p100}pro ${meal.c100}carb ${meal.f100}fat`);
+    if (meal.id) lines.push(`- id: ${meal.id}`);
     if (meal.liked) lines.push('- liked');
     lines.push('');
   }
@@ -808,7 +825,7 @@ function mergeMealsFromVault(fileText) {
       existing.cat = fm.cat; existing.defaultMeal = fm.defaultMeal; existing.defaultGrams = fm.defaultGrams;
       existing.p100 = fm.p100; existing.c100 = fm.c100; existing.f100 = fm.f100; existing.cals100 = fm.cals100; existing.liked = fm.liked;
     } else {
-      fm.id = `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      if (!fm.id || state.fuel.foodDb.some(m => m.id === fm.id)) fm.id = `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       state.fuel.foodDb.push(fm);
     }
   }
@@ -837,23 +854,26 @@ function mergeTrainingLogsFromVault(fileText) {
 /* --- nutrition diary merge --- */
 function mergeNutritionDiaryFromVault(fileText) {
   const fileHistory = parseNutritionDiaryMd(fileText);
-  for (const [date, day] of Object.entries(fileHistory)) {
-    if (!state.fuel.history[date]) { state.fuel.history[date] = { water: 0, meals: [] }; }
-    if (VAULT.dirty.nutritionDiary) {
-      state.fuel.history[date] = day;
-    } else {
-      state.fuel.history[date].water = day.water;
-      for (const fm of day.meals) {
-        const existing = state.fuel.history[date].meals.find(m => m.id === fm.id);
-        if (existing) { existing.name = fm.name; existing.cals = fm.cals; existing.p = fm.p; existing.c = fm.c; existing.f = fm.f; existing.category = fm.category; }
-        else state.fuel.history[date].meals.push(fm);
-      }
-      state.fuel.history[date].meals = state.fuel.history[date].meals.filter(m => !VAULT.deleted.nutritionDiary.has(m.id));
+  const deleted = VAULT.deleted.nutritionDiary;
+  const appDirty = VAULT.dirty.nutritionDiary;
+  for (const [date, fileDay] of Object.entries(fileHistory)) {
+    const localDay = state.fuel.history[date];
+    if (!localDay) {
+      state.fuel.history[date] = { water: fileDay.water, meals: fileDay.meals.filter(m => !deleted.has(String(m.id))) };
+      continue;
     }
+    for (const fm of fileDay.meals) {
+      if (deleted.has(String(fm.id))) continue;
+      const existing = localDay.meals.find(m => String(m.id) === String(fm.id));
+      if (!existing) localDay.meals.push(fm);
+      else if (!appDirty) { existing.name = fm.name; existing.cals = fm.cals; existing.p = fm.p; existing.c = fm.c; existing.f = fm.f; existing.category = fm.category; }
+    }
+    if (!appDirty) localDay.water = fileDay.water;
+    localDay.meals = localDay.meals.filter(m => !deleted.has(String(m.id)));
   }
-  if (VAULT.deleted.nutritionDiary.size) {
+  if (deleted.size) {
     for (const date of Object.keys(state.fuel.history)) {
-      state.fuel.history[date].meals = state.fuel.history[date].meals.filter(m => !VAULT.deleted.nutritionDiary.has(m.id));
+      state.fuel.history[date].meals = state.fuel.history[date].meals.filter(m => !deleted.has(String(m.id)));
     }
   }
 }
@@ -865,7 +885,8 @@ const vaultSaving = {};
 
 function scheduleVaultSave(fileKey, silent) {
   clearTimeout(vaultSaveTimers[fileKey]);
-  vaultSaveTimers[fileKey] = setTimeout(() => { writeVaultFile(fileKey).catch(err => { if (silent) return; console.warn('Vault save failed:', VAULT_FILES[fileKey], err); toast('Save failed: ' + VAULT_FILES[fileKey]); }); }, VAULT_SAVE_DEBOUNCE);
+  const folder = VAULT.folder;
+  vaultSaveTimers[fileKey] = setTimeout(() => { writeVaultFile(fileKey, folder).catch(err => { if (silent) return; console.warn('Vault save failed:', VAULT_FILES[fileKey], err); toast('Save failed: ' + VAULT_FILES[fileKey]); }); }, VAULT_SAVE_DEBOUNCE);
 }
 
 function getSerializer(fileKey) {
@@ -879,13 +900,13 @@ function getSerializer(fileKey) {
   }
 }
 
-async function writeVaultFile(fileKey) {
+async function writeVaultFile(fileKey, folder = VAULT.folder) {
   if (vaultSaving[fileKey]) { scheduleVaultSave(fileKey, true); return; }
   vaultSaving[fileKey] = true;
   try {
     const fileName = VAULT_FILES[fileKey];
     const newContent = getSerializer(fileKey);
-    let externalContent = await FS_ADAPTER.readFile(VAULT.folder, fileName);
+    let externalContent = await FS_ADAPTER.readFile(folder, fileName);
     if (externalContent === null) externalContent = '';
     const lastRead = VAULT.lastRead[fileKey] || '';
     if (externalContent !== lastRead && externalContent !== '' && externalContent !== newContent) {
@@ -902,7 +923,12 @@ async function writeVaultFile(fileKey) {
       }
     }
     const mergedContent = getSerializer(fileKey);
-    await FS_ADAPTER.writeFile(VAULT.folder, fileName, mergedContent);
+    if (mergedContent === externalContent) {
+      VAULT.lastRead[fileKey] = mergedContent;
+      vaultResetDirtyFile(fileKey);
+      return;
+    }
+    await FS_ADAPTER.writeFile(folder, fileName, mergedContent);
     VAULT.lastRead[fileKey] = mergedContent;
     vaultResetDirtyFile(fileKey);
   } finally {
@@ -1055,6 +1081,9 @@ async function switchVault(folder) {
   }
   state.activeWorkout = null;
   try { localStorage.removeItem(STORAGE_KEYS.activeWorkout); } catch {}
+  const pendingKeys = Object.keys(vaultSaveTimers);
+  for (const key of pendingKeys) { clearTimeout(vaultSaveTimers[key]); delete vaultSaveTimers[key]; }
+  if (VAULT.loaded && pendingKeys.length) await Promise.all(pendingKeys.map(key => writeVaultFile(key).catch(() => {})));
   await loadVault(clean, { silent: false });
 }
 
@@ -1084,10 +1113,12 @@ function setVaultStatus(stateKey, message) {
 function updateVaultUI() {
   const display = document.getElementById('vaultFolderDisplay');
   const input = document.getElementById('vaultFolderInput');
+  const path = document.getElementById('vaultFolderPath');
   const backendInfo = document.getElementById('vaultBackendInfo');
   if (display) display.textContent = VAULT.folder;
+  if (path) path.textContent = `Documents/${VAULT.folder}`;
   if (input && document.activeElement !== input) input.value = VAULT.folder;
-  if (backendInfo) backendInfo.textContent = FS_ADAPTER.isNative ? 'Native filesystem (Capacitor)' : 'Browser vault (simulated localStorage)';
+  if (backendInfo) backendInfo.textContent = FS_ADAPTER.isNative ? 'Native files' : 'Browser (simulated)';
 }
 
 function renderEverything() {
@@ -2498,12 +2529,12 @@ function normalizeImportedProgressLog(log,index){
   return{id:String(log.id||timestamp),exerciseId:String(log.exerciseId).replace(/^#/,''),date:String(log.date),sets:clamp(log.sets,1,LIMITS.sets),reps:clamp(log.reps,1,LIMITS.reps),weight:log.weight===''||log.weight==null?null:Math.min(LIMITS.weight,Math.max(0,Number(log.weight)||0)),...(setWeights?{setWeights}:{}),...(setReps?{setReps}:{}),notes:String(log.notes||'').slice(0,LIMITS.notes),createdAt:timestamp};
 }
 function progressLogToText(log){
-  const exercise=getExercise(log.exerciseId),timestamp=Number(log.createdAt)||Date.now(),numericId=String(log.id||'').match(/\d{10,}/)?.[0]||String(timestamp);
+  const exercise=getExercise(log.exerciseId),timestamp=Number(log.createdAt)||Date.now(),exportId=String(log.id||timestamp);
   if(isTimedCardioLog(log)){
     const intervals=Number(log.intervals)||Math.max(Array.isArray(log.setDurations)?log.setDurations.length:0,Array.isArray(log.setDistances)?log.setDistances.length:0,1);
-    return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`interval: ${intervals}`,...(Array.isArray(log.setDurations)&&log.setDurations.length?[`duration: ${log.setDurations.join(', ')}`]:[]),...(Array.isArray(log.setDistances)&&log.setDistances.length?[`distance: ${log.setDistances.join(', ')}`]:[]),`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${numericId}`].join('\n');
+    return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`interval: ${intervals}`,...(Array.isArray(log.setDurations)&&log.setDurations.length?[`duration: ${log.setDurations.join(', ')}`]:[]),...(Array.isArray(log.setDistances)&&log.setDistances.length?[`distance: ${log.setDistances.join(', ')}`]:[]),`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${exportId}`].join('\n');
   }
-  return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`sets: ${log.sets}`,`reps: ${log.reps}`,`weight: ${log.weight??''}`,...(Array.isArray(log.setWeights)&&log.setWeights.length?[`setWeights: ${log.setWeights.join(', ')}`]:[]),...(Array.isArray(log.setReps)&&log.setReps.length?[`setReps: ${log.setReps.join(', ')}`]:[]),`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${numericId}`].join('\n');
+  return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`sets: ${log.sets}`,`reps: ${log.reps}`,`weight: ${log.weight??''}`,...(Array.isArray(log.setWeights)&&log.setWeights.length?[`setWeights: ${log.setWeights.join(', ')}`]:[]),...(Array.isArray(log.setReps)&&log.setReps.length?[`setReps: ${log.setReps.join(', ')}`]:[]),`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${exportId}`].join('\n');
 }
 function progressLogsToText(logs=state.progress.logs){return logs.map(progressLogToText).join('\n\n')}
 function parseProgressLogText(text){
@@ -4547,7 +4578,7 @@ function parseMealsText(text) {
   let currentMeal = null;
 
   for (const line of lines) {
-    const headerMatch = line.match(/^(.*?)\s*-\s*([A-Za-z0-9\/\s]+)\s*\(\s*(\d+(?:\.\d+)?)\s*g\s*\)$/i);
+    const headerMatch = line.match(/^(.+)\s*-\s*([A-Za-z0-9\/\s-]+)\s*\(\s*(\d+(?:\.\d+)?)\s*g\s*\)$/i);
     if (headerMatch) {
       currentMeal = {
         id: `m-${stamp}-${meals.length}`,
@@ -5106,15 +5137,27 @@ initModalSwipeDown();
   const input = document.getElementById('vaultFolderInput');
   const btn = document.getElementById('vaultConnectBtn');
   const reload = document.getElementById('vaultReloadBtn');
+  const editToggle = document.getElementById('vaultEditToggle');
+  const editPanel = document.getElementById('vaultEditPanel');
   if (!input || !btn) return;
   const stored = (() => { try { return localStorage.getItem(VAULT_FOLDER_KEY) || VAULT_DEFAULT_FOLDER; } catch { return VAULT_DEFAULT_FOLDER; } })();
   VAULT.folder = sanitizeVaultFolder(stored);
   input.value = VAULT.folder;
   updateVaultUI();
   setVaultStatus('loading');
+  const closeEditPanel = () => { if (editPanel && !editPanel.hidden) { editPanel.hidden = true; if (editToggle) editToggle.setAttribute('aria-expanded', 'false'); } };
+  if (editToggle && editPanel) {
+    editToggle.addEventListener('click', () => {
+      const open = editPanel.hidden;
+      editPanel.hidden = !open;
+      editToggle.setAttribute('aria-expanded', String(open));
+      if (open) { input.value = VAULT.folder; input.focus(); }
+    });
+  }
   btn.addEventListener('click', () => {
     const name = sanitizeVaultFolder(input.value);
     input.value = name;
+    closeEditPanel();
     switchVault(name);
   });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });

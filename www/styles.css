@@ -915,15 +915,23 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .vault-status[data-state="native"] .vault-status-text { color: var(--accent); }
 .vault-status[data-state="error"] .vault-dot { background: var(--danger); }
 .vault-status[data-state="error"] .vault-status-text { color: var(--danger); }
-.vault-input-row { display: flex; align-items: center; gap: var(--space-2); padding: 8px var(--space-3); }
+.vault-hero { display: flex; align-items: center; gap: var(--space-3); padding: 14px var(--space-3) 10px; }
+.vault-hero-icon { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
+.vault-hero-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.vault-hero-text strong { overflow: hidden; color: var(--text); font-size: 15px; font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
+.vault-hero-path { overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.vault-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); padding: 0 var(--space-3) 12px; }
+.vault-actions button { min-height: var(--control-size); display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--text-soft); background: var(--surface-raised); border: none; border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; }
+.vault-actions button:active { opacity: .7; }
+.vault-edit-panel { margin: 0 var(--space-3) 12px; padding: var(--space-3); background: #141416; border-radius: var(--radius-control); }
+.vault-edit-panel label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 9px; font-weight: var(--weight-semibold); letter-spacing: .08em; text-transform: uppercase; }
+.vault-input-row { display: flex; align-items: center; gap: var(--space-2); }
 .vault-input-prefix { color: var(--text-muted); font-size: 13px; font-weight: var(--weight-medium); flex-shrink: 0; }
-.vault-folder-input { flex: 1; min-width: 0; min-height: var(--control-size); padding: 6px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-surface); font-size: 13px; font-weight: var(--weight-medium); }
+.vault-folder-input { flex: 1; min-width: 0; min-height: var(--control-size); padding: 6px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 13px; font-weight: var(--weight-medium); }
 .vault-folder-input:focus { outline: none; border-color: var(--accent); }
-.vault-connect-btn { flex-shrink: 0; min-height: var(--control-size); padding: 6px 16px; color: #fff; background: var(--accent); border: none; border-radius: var(--radius-surface); font-size: 13px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: opacity .15s ease; }
+.vault-connect-btn { flex-shrink: 0; min-height: var(--control-size); padding: 6px 16px; color: #fff; background: var(--accent); border: none; border-radius: var(--radius-control); font-size: 13px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: opacity .15s ease; }
 .vault-connect-btn:active { opacity: .7; }
 .vault-connect-btn:disabled { opacity: .5; cursor: not-allowed; }
-.vault-backend-info { color: #5a5a5e; font-size: 11px; padding: 4px var(--space-3) 8px; }
-.vault-reload-row { padding: 0 var(--space-3) 8px; }
 
 /* Progress & Meal Logger Unified Forms */
 .progress-form {
@@ -1800,7 +1808,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     max-width: none;
     height: calc(100dvh - var(--safe-top) - 64px - env(safe-area-inset-bottom));
     overflow: hidden;
-    padding: 0 var(--space-3);
+    padding: 6px var(--space-3) 0;
     background: #000000;
     border: none !important;
     box-shadow: none;
@@ -1834,7 +1842,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     width: 100%;
     max-width: none;
     height: 100%;
-    padding: 0 var(--space-3);
+    padding: 6px var(--space-3) 0;
     background: #000000;
     border: none !important;
     box-shadow: none;
@@ -1858,7 +1866,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     left: var(--frame-inset);
     width: auto;
     max-height: none;
-    padding: 0 var(--space-3);
+    padding: 6px var(--space-3) 0;
     background: #000000;
     border: none !important;
     box-shadow: none;

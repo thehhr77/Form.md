@@ -36,6 +36,7 @@
   <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
   <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></symbol>
   <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
 </svg>
 
 <div class="app">
@@ -637,22 +638,26 @@
         <section class="settings-group">
           <h3 class="settings-heading">Storage vault</h3>
           <div class="settings-card">
-            <div class="settings-row">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-routine"/></svg><span>Documents/<span id="vaultFolderDisplay">Gym2026</span></span></span>
+            <div class="vault-hero">
+              <svg class="icon vault-hero-icon" aria-hidden="true"><use href="#icon-folder"/></svg>
+              <div class="vault-hero-text">
+                <strong id="vaultFolderDisplay">Gym2026</strong>
+                <span class="vault-hero-path"><span id="vaultFolderPath">Documents/Gym2026</span> · <span id="vaultBackendInfo">Browser (simulated)</span></span>
+              </div>
               <span class="vault-status" id="vaultStatus" data-state="loading"><span class="vault-dot"></span><span class="vault-status-text" id="vaultStatusText">Loading…</span></span>
             </div>
-            <div class="vault-input-row">
-              <span class="vault-input-prefix">Documents/</span>
-              <input id="vaultFolderInput" class="vault-folder-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
-              <button id="vaultConnectBtn" class="vault-connect-btn" type="button">Connect</button>
+            <div class="vault-actions">
+              <button type="button" id="vaultEditToggle" aria-expanded="false" aria-controls="vaultEditPanel"><svg class="icon"><use href="#icon-edit"/></svg><span>Change folder</span></button>
+              <button type="button" id="vaultReloadBtn"><svg class="icon"><use href="#icon-reset"/></svg><span>Reload from disk</span></button>
             </div>
-            <div class="vault-reload-row">
-              <button type="button" class="settings-row settings-row-action" id="vaultReloadBtn">
-                <span class="settings-row-main"><svg class="icon"><use href="#icon-reset"/></svg><span>Reload vault from disk</span></span>
-                <svg class="icon settings-chevron" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
-              </button>
+            <div class="vault-edit-panel" id="vaultEditPanel" hidden>
+              <label for="vaultFolderInput">Folder name</label>
+              <div class="vault-input-row">
+                <span class="vault-input-prefix">Documents/</span>
+                <input id="vaultFolderInput" class="vault-folder-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
+                <button id="vaultConnectBtn" class="vault-connect-btn" type="button">Connect</button>
+              </div>
             </div>
-            <div class="vault-backend-info" id="vaultBackendInfo">Browser vault (simulated)</div>
           </div>
         </section>
         <section class="settings-group">
