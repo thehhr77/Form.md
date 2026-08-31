@@ -636,31 +636,6 @@
     <div class="feature-scroll">
       <div class="settings-stack">
         <section class="settings-group">
-          <h3 class="settings-heading">Storage vault</h3>
-          <div class="settings-card">
-            <div class="vault-hero">
-              <svg class="icon vault-hero-icon" aria-hidden="true"><use href="#icon-folder"/></svg>
-              <div class="vault-hero-text">
-                <strong id="vaultFolderDisplay">Gym2026</strong>
-                <span class="vault-hero-path"><span id="vaultFolderPath">Documents/Gym2026</span> · <span id="vaultBackendInfo">Browser (simulated)</span></span>
-              </div>
-              <span class="vault-status" id="vaultStatus" data-state="loading"><span class="vault-dot"></span><span class="vault-status-text" id="vaultStatusText">Loading…</span></span>
-            </div>
-            <div class="vault-actions">
-              <button type="button" id="vaultEditToggle" aria-expanded="false" aria-controls="vaultEditPanel"><svg class="icon"><use href="#icon-edit"/></svg><span>Change folder</span></button>
-              <button type="button" id="vaultReloadBtn"><svg class="icon"><use href="#icon-reset"/></svg><span>Reload from disk</span></button>
-            </div>
-            <div class="vault-edit-panel" id="vaultEditPanel" hidden>
-              <label for="vaultFolderInput">Folder name</label>
-              <div class="vault-input-row">
-                <span class="vault-input-prefix">Documents/</span>
-                <input id="vaultFolderInput" class="vault-folder-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
-                <button id="vaultConnectBtn" class="vault-connect-btn" type="button">Connect</button>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section class="settings-group">
           <h3 class="settings-heading">Training</h3>
           <div class="settings-card">
             <div class="settings-row">
@@ -771,6 +746,21 @@
         <section class="settings-group">
           <h3 class="settings-heading">Data</h3>
           <div class="settings-card">
+            <button type="button" class="settings-row settings-row-action" id="vaultEditToggle" aria-expanded="false" aria-controls="vaultEditPanel" title="Storage vault">
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-folder"/></svg><span>Storage vault</span></span>
+              <span class="settings-row-value" id="vaultFolderPath">Documents/Gym2026</span>
+              <span class="vault-status" id="vaultStatus" data-state="loading"><span class="vault-dot"></span><span class="vault-status-text" id="vaultStatusText">Loading…</span></span>
+              <svg class="icon settings-chevron" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
+            </button>
+            <div class="vault-edit-panel" id="vaultEditPanel" hidden>
+              <div class="vault-input-row">
+                <span class="vault-input-prefix">Documents/</span>
+                <input id="vaultFolderInput" class="vault-folder-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
+                <button id="vaultConnectBtn" class="vault-connect-btn" type="button">Connect</button>
+              </div>
+              <button type="button" class="vault-reload-btn" id="vaultReloadBtn"><svg class="icon"><use href="#icon-reset"/></svg><span>Reload from disk</span></button>
+              <div class="vault-backend-info" id="vaultBackendInfo">Browser (simulated)</div>
+            </div>
             <button type="button" class="settings-row settings-row-action" id="progressCopyLog">
               <span class="settings-row-main"><svg class="icon"><use href="#icon-copy"/></svg><span>Export training log</span></span>
             </button>

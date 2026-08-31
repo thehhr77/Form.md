@@ -884,7 +884,9 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .settings-stepper { width: 132px; flex: 0 0 132px; }
 .settings-row + .settings-row,
 .settings-row + .progress-log-paste,
-.progress-log-paste + .settings-row { border-top: 1px solid rgba(255,255,255,.06); }
+.progress-log-paste + .settings-row,
+.settings-row + .vault-edit-panel,
+.vault-edit-panel + .settings-row { border-top: 1px solid rgba(255,255,255,.06); }
 .settings-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); color: var(--text); font-size: 13px; font-weight: var(--weight-medium); }
 .settings-row-main .icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
 button.settings-row { width: 100%; background: none; border: none; cursor: pointer; text-align: left; appearance: none; }
@@ -915,16 +917,10 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .vault-status[data-state="native"] .vault-status-text { color: var(--accent); }
 .vault-status[data-state="error"] .vault-dot { background: var(--danger); }
 .vault-status[data-state="error"] .vault-status-text { color: var(--danger); }
-.vault-hero { display: flex; align-items: center; gap: var(--space-3); padding: 14px var(--space-3) 10px; }
-.vault-hero-icon { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
-.vault-hero-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.vault-hero-text strong { overflow: hidden; color: var(--text); font-size: 15px; font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
-.vault-hero-path { overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.vault-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); padding: 0 var(--space-3) 12px; }
-.vault-actions button { min-height: var(--control-size); display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--text-soft); background: var(--surface-raised); border: none; border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; }
-.vault-actions button:active { opacity: .7; }
-.vault-edit-panel { margin: 0 var(--space-3) 12px; padding: var(--space-3); background: #141416; border-radius: var(--radius-control); }
-.vault-edit-panel label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 9px; font-weight: var(--weight-semibold); letter-spacing: .08em; text-transform: uppercase; }
+.vault-edit-panel { border-top: 1px solid rgba(255,255,255,.06); padding: var(--space-3); display: grid; gap: var(--space-2); }
+.vault-reload-btn { min-height: var(--control-size); display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--text-soft); background: var(--surface-strong); border: none; border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; }
+.vault-reload-btn:active { opacity: .7; }
+.vault-backend-info { color: #5a5a5e; font-size: 11px; }
 .vault-input-row { display: flex; align-items: center; gap: var(--space-2); }
 .vault-input-prefix { color: var(--text-muted); font-size: 13px; font-weight: var(--weight-medium); flex-shrink: 0; }
 .vault-folder-input { flex: 1; min-width: 0; min-height: var(--control-size); padding: 6px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 13px; font-weight: var(--weight-medium); }

@@ -1101,21 +1101,20 @@ function setVaultStatus(stateKey, message) {
   const status = document.getElementById('vaultStatus');
   if (!status) return;
   status.setAttribute('data-state', stateKey);
+  status.title = message || '';
   const text = document.getElementById('vaultStatusText');
   if (text) {
-    if (stateKey === 'ok') text.textContent = 'Connected · Browser vault';
-    else if (stateKey === 'native') text.textContent = 'Connected · Native documents';
-    else if (stateKey === 'error') text.textContent = message ? `Error: ${message}` : 'Error';
+    if (stateKey === 'ok') text.textContent = 'Connected';
+    else if (stateKey === 'native') text.textContent = 'Native';
+    else if (stateKey === 'error') text.textContent = 'Error';
     else text.textContent = 'Loading…';
   }
 }
 
 function updateVaultUI() {
-  const display = document.getElementById('vaultFolderDisplay');
   const input = document.getElementById('vaultFolderInput');
   const path = document.getElementById('vaultFolderPath');
   const backendInfo = document.getElementById('vaultBackendInfo');
-  if (display) display.textContent = VAULT.folder;
   if (path) path.textContent = `Documents/${VAULT.folder}`;
   if (input && document.activeElement !== input) input.value = VAULT.folder;
   if (backendInfo) backendInfo.textContent = FS_ADAPTER.isNative ? 'Native files' : 'Browser (simulated)';
@@ -1142,9 +1141,7 @@ function renderEverything() {
 
 /* --- vault-aware save wrappers --- */
 function saveRoutinesToVault() { markDirty('routines'); scheduleVaultSave('routines'); writeStorage(STORAGE_KEYS.routines, state.routines); }
-function saveMealsToVault() { markDirty('meals'); scheduleVaultSave('meals'); saveFuelState(); }
 function saveTrainingLogsToVault() { markDirty('trainingLogs'); scheduleVaultSave('trainingLogs'); writeStorage(STORAGE_KEYS.progress, state.progress.logs); }
-function saveNutritionDiaryToVault() { markDirty('nutritionDiary'); scheduleVaultSave('nutritionDiary'); saveFuelState(); }
 function saveConfigToVault() { markDirty('config'); scheduleVaultSave('config'); writeStorage(STORAGE_KEYS.accent, activeAccent); writeStorage(STORAGE_KEYS.saved, [...state.saved]); writeStorage(STORAGE_KEYS.schedule, state.schedule); writeStorage(STORAGE_KEYS.progressPreferences, state.progressPreferences); writeStorage(STORAGE_KEYS.workoutReminder, state.showWorkoutReminder); writeStorage(STORAGE_KEYS.restPrefs, state.restPrefs); writeStorage(STORAGE_KEYS.pillRowModes, state.pillRowModes); }
 
 let isHandlingPopstate = false;
