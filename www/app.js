@@ -1012,7 +1012,6 @@ async function loadVault(folder, options) {
   const opts = options || {};
   const silent = opts.silent !== false;
   VAULT.folder = sanitizeVaultFolder(folder);
-  setVaultStatus('loading');
   try {
     const [routinesText, mealsText, logsText, diaryText, configText] = await Promise.all([
       FS_ADAPTER.readFile(VAULT.folder, VAULT_FILES.routines),
@@ -1060,13 +1059,11 @@ async function loadVault(folder, options) {
     vaultResetDirty();
     VAULT.loaded = true;
     try { localStorage.setItem(VAULT_FOLDER_KEY, VAULT.folder); } catch {}
-    setVaultStatus(FS_ADAPTER.isNative ? 'native' : 'ok');
     updateVaultUI();
     renderEverything();
     if (!silent) toast(allMissing ? `Created new vault in Documents/${VAULT.folder}` : `Vault loaded from Documents/${VAULT.folder}`);
   } catch (err) {
     console.error('Vault load error:', err);
-    setVaultStatus('error', err && err.message ? err.message : 'Unknown error');
     if (!silent) toast('Vault load failed');
   }
 }
@@ -1097,27 +1094,11 @@ async function reloadVault() {
 
 /* ===================== VAULT UI ===================== */
 
-function setVaultStatus(stateKey, message) {
-  const status = document.getElementById('vaultStatus');
-  if (!status) return;
-  status.setAttribute('data-state', stateKey);
-  status.title = message || '';
-  const text = document.getElementById('vaultStatusText');
-  if (text) {
-    if (stateKey === 'ok') text.textContent = 'Connected';
-    else if (stateKey === 'native') text.textContent = 'Native';
-    else if (stateKey === 'error') text.textContent = 'Error';
-    else text.textContent = 'Loading…';
-  }
-}
-
 function updateVaultUI() {
   const input = document.getElementById('vaultFolderInput');
   const path = document.getElementById('vaultFolderPath');
-  const backendInfo = document.getElementById('vaultBackendInfo');
-  if (path) path.textContent = `Documents/${VAULT.folder}`;
+  if (path) path.textContent = VAULT.folder;
   if (input && document.activeElement !== input) input.value = VAULT.folder;
-  if (backendInfo) backendInfo.textContent = FS_ADAPTER.isNative ? 'Native files' : 'Browser (simulated)';
 }
 
 function renderEverything() {
@@ -4081,7 +4062,6 @@ function syncFuelTargetEditor() {
     row.querySelector('[data-target-clear]').hidden = !overridden;
     const input = row.querySelector('.routine-stepper input');
     if (input && document.activeElement !== input) input.value = formatFuelTargetValue(key, effective[key]);
-    row.title = overridden ? 'Custom target' : `Calculated: ${formatFuelTargetValue(key, calc[key])}`;
   });
   const resetButton = $('#fuelTargetsReset');
   if (resetButton) resetButton.disabled = !FUEL_TARGET_KEYS.some(isFuelTargetOverridden);
@@ -5131,34 +5111,45 @@ initModalSwipeDown();
    ========================================================= */
 
 (function initVaultUI() {
+  const wrap = document.getElementById('vaultPathWrap');
+  const path = document.getElementById('vaultFolderPath');
   const input = document.getElementById('vaultFolderInput');
-  const btn = document.getElementById('vaultConnectBtn');
   const reload = document.getElementById('vaultReloadBtn');
-  const editToggle = document.getElementById('vaultEditToggle');
-  const editPanel = document.getElementById('vaultEditPanel');
-  if (!input || !btn) return;
+  if (!path || !input) return;
   const stored = (() => { try { return localStorage.getItem(VAULT_FOLDER_KEY) || VAULT_DEFAULT_FOLDER; } catch { return VAULT_DEFAULT_FOLDER; } })();
   VAULT.folder = sanitizeVaultFolder(stored);
   input.value = VAULT.folder;
   updateVaultUI();
-  setVaultStatus('loading');
-  const closeEditPanel = () => { if (editPanel && !editPanel.hidden) { editPanel.hidden = true; if (editToggle) editToggle.setAttribute('aria-expanded', 'false'); } };
-  if (editToggle && editPanel) {
-    editToggle.addEventListener('click', () => {
-      const open = editPanel.hidden;
-      editPanel.hidden = !open;
-      editToggle.setAttribute('aria-expanded', String(open));
-      if (open) { input.value = VAULT.folder; input.focus(); }
-    });
-  }
-  btn.addEventListener('click', () => {
-    const name = sanitizeVaultFolder(input.value);
-    input.value = name;
-    closeEditPanel();
-    switchVault(name);
+  let editing = false;
+  const startEdit = () => {
+    if (editing) return;
+    editing = true;
+    if (wrap) wrap.hidden = true;
+    input.hidden = false;
+    input.value = VAULT.folder;
+    input.focus();
+    input.select();
+  };
+  const endEdit = (commit) => {
+    if (!editing) return;
+    editing = false;
+    input.hidden = true;
+    if (wrap) wrap.hidden = false;
+    if (commit) {
+      const name = sanitizeVaultFolder(input.value);
+      input.value = name;
+      if (name !== VAULT.folder) { switchVault(name); return; }
+    }
+    updateVaultUI();
+  };
+  path.addEventListener('click', startEdit);
+  path.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEdit(); } });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); endEdit(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
   });
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
-  if (reload) reload.addEventListener('click', () => reloadVault());
+  input.addEventListener('blur', () => endEdit(true));
+  if (reload) reload.addEventListener('click', () => { endEdit(false); reloadVault(); });
 })();
 
 (async function initVaultBoot() {

@@ -884,9 +884,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .settings-stepper { width: 132px; flex: 0 0 132px; }
 .settings-row + .settings-row,
 .settings-row + .progress-log-paste,
-.progress-log-paste + .settings-row,
-.settings-row + .vault-edit-panel,
-.vault-edit-panel + .settings-row { border-top: 1px solid rgba(255,255,255,.06); }
+.progress-log-paste + .settings-row { border-top: 1px solid rgba(255,255,255,.06); }
 .settings-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); color: var(--text); font-size: 13px; font-weight: var(--weight-medium); }
 .settings-row-main .icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
 button.settings-row { width: 100%; background: none; border: none; cursor: pointer; text-align: left; appearance: none; }
@@ -909,25 +907,13 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .progress-log-paste > div { display: grid; grid-template-columns: .85fr 1fr 1.25fr; gap: var(--space-2); margin-top: var(--space-2); }
 .progress-log-paste button { min-height: var(--control-size); color: var(--text-soft); background: var(--surface-strong); border: none; font-weight: var(--weight-semibold); }
 
-.vault-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: var(--weight-medium); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
-.vault-dot { width: 8px; height: 8px; border-radius: 50%; background: #5a5a5e; flex-shrink: 0; transition: background .2s ease; }
-.vault-status[data-state="ok"] .vault-dot { background: var(--positive); }
-.vault-status[data-state="ok"] .vault-status-text { color: var(--positive); }
-.vault-status[data-state="native"] .vault-dot { background: var(--accent); }
-.vault-status[data-state="native"] .vault-status-text { color: var(--accent); }
-.vault-status[data-state="error"] .vault-dot { background: var(--danger); }
-.vault-status[data-state="error"] .vault-status-text { color: var(--danger); }
-.vault-edit-panel { border-top: 1px solid rgba(255,255,255,.06); padding: var(--space-3); display: grid; gap: var(--space-2); }
-.vault-reload-btn { min-height: var(--control-size); display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--text-soft); background: var(--surface-strong); border: none; border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; }
-.vault-reload-btn:active { opacity: .7; }
-.vault-backend-info { color: #5a5a5e; font-size: 11px; }
-.vault-input-row { display: flex; align-items: center; gap: var(--space-2); }
-.vault-input-prefix { color: var(--text-muted); font-size: 13px; font-weight: var(--weight-medium); flex-shrink: 0; }
-.vault-folder-input { flex: 1; min-width: 0; min-height: var(--control-size); padding: 6px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 13px; font-weight: var(--weight-medium); }
-.vault-folder-input:focus { outline: none; border-color: var(--accent); }
-.vault-connect-btn { flex-shrink: 0; min-height: var(--control-size); padding: 6px 16px; color: #fff; background: var(--accent); border: none; border-radius: var(--radius-control); font-size: 13px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: opacity .15s ease; }
-.vault-connect-btn:active { opacity: .7; }
-.vault-connect-btn:disabled { opacity: .5; cursor: not-allowed; }
+.vault-path { cursor: text; }
+.vault-path [role="button"] { text-decoration: underline dotted rgba(255,255,255,.25); text-underline-offset: 3px; }
+.vault-path-input { flex: 0 1 140px; min-width: 90px; width: 140px; min-height: 34px; padding: 4px 8px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-medium); }
+.vault-path-input:focus { outline: none; border-color: var(--accent); }
+.vault-reload-btn { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: none; border-radius: 50%; cursor: pointer; appearance: none; }
+.vault-reload-btn:active { color: var(--text); background: var(--surface-strong); }
+.vault-reload-btn .icon { width: 16px; height: 16px; }
 
 /* Progress & Meal Logger Unified Forms */
 .progress-form {

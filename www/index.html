@@ -746,20 +746,11 @@
         <section class="settings-group">
           <h3 class="settings-heading">Data</h3>
           <div class="settings-card">
-            <button type="button" class="settings-row settings-row-action" id="vaultEditToggle" aria-expanded="false" aria-controls="vaultEditPanel" title="Storage vault">
+            <div class="settings-row">
               <span class="settings-row-main"><svg class="icon"><use href="#icon-folder"/></svg><span>Storage vault</span></span>
-              <span class="settings-row-value" id="vaultFolderPath">Documents/Gym2026</span>
-              <span class="vault-status" id="vaultStatus" data-state="loading"><span class="vault-dot"></span><span class="vault-status-text" id="vaultStatusText">Loading…</span></span>
-              <svg class="icon settings-chevron" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
-            </button>
-            <div class="vault-edit-panel" id="vaultEditPanel" hidden>
-              <div class="vault-input-row">
-                <span class="vault-input-prefix">Documents/</span>
-                <input id="vaultFolderInput" class="vault-folder-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
-                <button id="vaultConnectBtn" class="vault-connect-btn" type="button">Connect</button>
-              </div>
-              <button type="button" class="vault-reload-btn" id="vaultReloadBtn"><svg class="icon"><use href="#icon-reset"/></svg><span>Reload from disk</span></button>
-              <div class="vault-backend-info" id="vaultBackendInfo">Browser (simulated)</div>
+              <span class="settings-row-value vault-path" id="vaultPathWrap"><span>Documents/</span><span id="vaultFolderPath" role="button" tabindex="0" aria-label="Edit vault folder name">Gym2026</span></span>
+              <input id="vaultFolderInput" class="vault-path-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false" hidden>
+              <button type="button" class="vault-reload-btn" id="vaultReloadBtn" aria-label="Reload vault from disk"><svg class="icon"><use href="#icon-reset"/></svg></button>
             </div>
             <button type="button" class="settings-row settings-row-action" id="progressCopyLog">
               <span class="settings-row-main"><svg class="icon"><use href="#icon-copy"/></svg><span>Export training log</span></span>
