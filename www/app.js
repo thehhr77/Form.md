@@ -3987,6 +3987,7 @@ $('#progressClearDataBtn').addEventListener('click', () => {
 });
 $('#progressBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeProgress(); });
 $('#progressForm').addEventListener('submit', saveProgressLog);
+$('#progressCancel').addEventListener('click', () => closeProgress());
 $('#progressWeightToggle').addEventListener('click', () => {
   state.progress.draft.showWeight = !state.progress.draft.showWeight;
   syncProgressDraft();

@@ -154,11 +154,12 @@
         <div class="progress-actions feature-field-wide">
           <div class="feature-field" id="progressModeSwitch" hidden>
             <div class="mode-switch">
-              <button type="button" data-mode="reps" aria-pressed="true">Sets × Reps</button>
+              <button type="button" data-mode="reps" aria-pressed="true">Reps</button>
               <button type="button" data-mode="timed" aria-pressed="false">Timed</button>
             </div>
           </div>
           <button type="button" class="weight-toggle" id="progressWeightToggle" hidden aria-pressed="false">Add weight</button>
+          <button type="button" class="progress-cancel" id="progressCancel">Cancel</button>
           <button class="feature-primary" id="progressSave" type="submit">Save</button>
         </div>
       </form>
@@ -758,7 +759,7 @@
           <h3 class="settings-heading">Data</h3>
           <div class="settings-card">
             <div class="settings-row">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-folder"/></svg><span>Vault</span></span>
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-folder"/></svg><span>Vault folder</span></span>
               <span class="vault-path-prefix">Documents/</span>
               <input id="vaultFolderPath" class="vault-path-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
               <button type="button" class="vault-reload-btn" id="vaultReloadBtn" aria-label="Reload vault from disk"><svg class="icon"><use href="#icon-reset"/></svg></button>
