@@ -128,7 +128,7 @@ function sanitizeAwRows(value,fallbackReps){
   if(!Array.isArray(value))return null;
   const rows=value.slice(0,LIMITS.sets).map(entry=>{
     const row=entry&&typeof entry==='object'?entry:{};
-    return{reps:clamp(row.reps??fallbackReps,1,LIMITS.reps),weight:row.weight==null?null:Math.round(clamp(row.weight,0,LIMITS.weight)*10)/10,duration:clamp(Math.round(Number(row.duration)||0),0,LIMITS.duration),distance:Math.round(clamp(Number(row.distance)||0,0,LIMITS.distance)*10)/10,done:Boolean(row.done)};
+    return{reps:clamp(row.reps??fallbackReps,1,LIMITS.reps),weight:row.weight==null?null:Math.round(clamp(row.weight,0,LIMITS.weight)*10)/10,duration:Math.round(clamp(Number(row.duration)||0,0,LIMITS.duration)*100)/100,distance:Math.round(clamp(Number(row.distance)||0,0,LIMITS.distance)*10)/10,done:Boolean(row.done)};
   });
   return rows.length?rows:null;
 }
@@ -190,9 +190,9 @@ function fitList(value,count,mapValue,fallback){
   list.length=count;
   return list;
 }
-function sanitizeDurationValue(value){const num=Number(value);return num>0?Math.min(LIMITS.duration,Math.round(num)):null}
+function sanitizeDurationValue(value){const num=Number(value);return num>0?Math.round(Math.min(LIMITS.duration,num)*100)/100:null}
 function sanitizeDistanceValue(value){const num=Number(value);return num>0?Math.round(Math.min(LIMITS.distance,num)*10)/10:null}
-function sanitizeSetDurations(value,fallbackLength){if(!Array.isArray(value))return null;const list=value.map(entry=>entry===''||entry==null?0:Math.min(LIMITS.duration,Math.max(0,Math.round(Number(entry))||0))).slice(0,fallbackLength||LIMITS.sets);return list.length?list:null}
+function sanitizeSetDurations(value,fallbackLength){if(!Array.isArray(value))return null;const list=value.map(entry=>entry===''||entry==null?0:Math.round(clamp(Number(entry)||0,0,LIMITS.duration)*100)/100).slice(0,fallbackLength||LIMITS.sets);return list.length?list:null}
 function sanitizeSetDistances(value,fallbackLength){if(!Array.isArray(value))return null;const list=value.map(entry=>entry===''||entry==null?0:Math.round(Math.min(LIMITS.distance,Math.max(0,Number(entry)||0))*10)/10).slice(0,fallbackLength||LIMITS.sets);return list.length?list:null}
 function normalizeTimedFields(log){
   const durations=sanitizeSetDurations(log.setDurations);
@@ -2100,7 +2100,7 @@ function lastLoggedDurationFor(exerciseId){
   if(!latest)return null;
   const durations=Array.isArray(latest.setDurations)&&latest.setDurations.length?latest.setDurations:(sanitizeDurationValue(latest.duration)?[sanitizeDurationValue(latest.duration)]:[]);
   if(!durations.length)return null;
-  return clamp(Math.round(Number(durations[durations.length-1]))||0,0,LIMITS.duration)||null;
+  return clamp(Math.round((Number(durations[durations.length-1]))*100)/100,0,LIMITS.duration)||null;
 }
 function lastLoggedRepsFor(exerciseId){
   const logs=[...state.progress.logs].filter(log=>log.exerciseId===exerciseId&&!isTimedCardioLog(log)).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
@@ -2121,7 +2121,7 @@ function syncAwLog(exercise,item){
   if(routineItemMode(item,exercise)==='timed'){
     const checked=awChecked(exercise.id).slice(0,LIMITS.sets);
     if(checked.length>0){
-      const setDurations=checked.map(row=>clamp(Math.round(Number(row.duration)||0),0,LIMITS.duration));
+      const setDurations=checked.map(row=>Math.round(clamp(Number(row.duration)||0,0,LIMITS.duration)*100)/100);
       const setDistances=checked.map(row=>Math.round(clamp(Number(row.distance)||0,0,LIMITS.distance)*10)/10);
       const hasDuration=setDurations.some(value=>value>0),hasDistance=setDistances.some(value=>value>0);
       if(hasDuration||hasDistance){
@@ -2218,7 +2218,7 @@ async function handleAwAction(action,exerciseId,delta,rowIndex){
     rows[index].weight=Math.round(clamp(current+Number(delta||0),0,LIMITS.weight)*10)/10;changed=true;
   }else if(action==='dur-inc'||action==='dur-dec'){
     if(!timed||!rows[index])return;
-    rows[index].duration=clamp(Math.round((Number(rows[index].duration)||0)+(action==='dur-inc'?5:-5)),0,LIMITS.duration);changed=true;
+    rows[index].duration=Math.round(clamp((Number(rows[index].duration)||0)+(action==='dur-inc'?5:-5),0,LIMITS.duration)*100)/100;changed=true;
   }else if(action==='dist-inc'||action==='dist-dec'){
     if(!timed||!rows[index])return;
     rows[index].distance=Math.round(clamp((Number(rows[index].distance)||0)+Number(delta||(action==='dist-inc'?0.5:-0.5)),0,LIMITS.distance)*10)/10;changed=true;
@@ -2271,7 +2271,7 @@ function renderActiveWorkout(){
         <span class="aw-num">${index+1}</span>
         ${timed?`<div class="routine-stepper" role="group" aria-label="Duration for interval ${index+1} of ${esc(exercise.name)}">
           <button class="routine-step" type="button" data-aw-action="dur-dec" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="Decrease duration"${skipped?' disabled':''}>${icon('minus')}</button>
-          <output aria-live="polite">${clamp(Math.round(Number(set.duration)||0),0,LIMITS.duration)} min</output>
+          <output aria-live="polite">${formatWeightValue(clamp(Number(set.duration)||0,0,LIMITS.duration))} min</output>
           <button class="routine-step" type="button" data-aw-action="dur-inc" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="Increase duration"${skipped?' disabled':''}>${icon('plus')}</button>
         </div>
         <div class="routine-stepper" role="group" aria-label="Distance for interval ${index+1} of ${esc(exercise.name)}">
@@ -2536,8 +2536,8 @@ function resetProgressDraft() {
     const latestDurations = Array.isArray(latest?.setDurations) ? latest.setDurations : [];
     const latestDistances = Array.isArray(latest?.setDistances) ? latest.setDistances : [];
     const hasTimedHistory = Boolean(timed?.intervals || latestDurations.length);
-    const seedDurationMinutes = clamp(latestDurations.length ? latestDurations[latestDurations.length - 1] : (sanitizeDurationValue(latest?.duration) ?? DEFAULTS.duration), 0, LIMITS.duration);
-    const seedDuration = hasTimedHistory ? (draft.durationUnit === 'sec' ? Math.round(seedDurationMinutes * 60) : seedDurationMinutes) : (draft.durationUnit === 'sec' ? 10 : 1);
+    const seedDurationMinutes = hasTimedHistory ? clamp(latestDurations.length ? latestDurations[latestDurations.length - 1] : (sanitizeDurationValue(latest?.duration) ?? 1), 0, LIMITS.duration) : 0;
+    const seedDuration = hasTimedHistory ? (draft.durationUnit === 'sec' ? Math.max(10, Math.round(seedDurationMinutes * 60)) : Math.max(1, seedDurationMinutes)) : (draft.durationUnit === 'sec' ? 10 : 1);
     const seedDistance = Math.round(clamp(latestDistances.length ? latestDistances[latestDurations.length - 1] : (sanitizeDistanceValue(latest?.distance) ?? DEFAULTS.distance), 0, LIMITS.distance) * 10) / 10;
     Object.assign(state.progress.draft, { sets: seedIntervals, setDurations: Array.from({ length: seedIntervals }, () => seedDuration), setDistances: Array.from({ length: seedIntervals }, () => seedDistance), notes: '' });
     $('#progressNotes').value = '';
@@ -2899,10 +2899,10 @@ function syncProgressDraft() {
   const timed = draft.mode === 'timed';
   const sec = timed && draft.durationUnit === 'sec';
   const durationMax = sec ? LIMITS.duration * 60 : LIMITS.duration;
-  const durationStep = sec ? 15 : 5;
+  const durationStep = sec ? 5 : 1;
   const durationFallback = sec ? 10 : 1;
   if (timed) {
-    draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round(Number(value)) || 0, 0, durationMax), durationFallback);
+    draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round((Number(value) || 0) * 100) / 100, 0, durationMax), durationFallback);
     draft.setDistances = fitList(draft.setDistances, draft.sets, (value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10, DEFAULTS.distance);
   } else {
     draft.setWeights = fitList(draft.setWeights, draft.sets, (value) => value, DEFAULTS.weight);
@@ -3357,7 +3357,7 @@ function saveProgressLog(event) {
   let log;
   if (draft.mode === 'timed') {
     const sec = draft.durationUnit === 'sec';
-    const toMinutes = (value) => sec ? Math.round(((Number(value) || 0) / 60) * 100) / 100 : clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration);
+    const toMinutes = (value) => sec ? Math.round(((Number(value) || 0) / 60) * 100) / 100 : (Number(value) || 0);
     const intervals = clamp(draft.sets, 1, LIMITS.sets);
     const setDurations = (Array.isArray(draft.setDurations) ? draft.setDurations : []).slice(0, intervals).map((value) => clamp(toMinutes(value), 0, LIMITS.duration));
     const setDistances = (Array.isArray(draft.setDistances) ? draft.setDistances : []).slice(0, intervals).map((value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10);
@@ -4062,9 +4062,10 @@ $('#progressCancel').addEventListener('click', () => closeProgress());
 $('#progressWeightToggle').addEventListener('click', () => {
   const draft = state.progress.draft;
   if (draft.mode === 'timed') {
-    const toSec = draft.durationUnit !== 'sec';
-    draft.setDurations = draft.setDurations.map((value) => toSec ? Math.round((Number(value) || 0) * 60) : Math.round(((Number(value) || 0) / 60) * 100) / 100);
-    draft.durationUnit = toSec ? 'sec' : 'min';
+    draft.durationUnit = draft.durationUnit === 'sec' ? 'min' : 'sec';
+    const mins = lastLoggedDurationFor(state.progress.activeExerciseId);
+    const value = mins != null ? (draft.durationUnit === 'sec' ? Math.max(10, Math.round(mins * 60)) : Math.max(1, mins)) : (draft.durationUnit === 'sec' ? 10 : 1);
+    draft.setDurations = draft.setDurations.map(() => value);
   } else {
     draft.showWeight = !draft.showWeight;
   }
