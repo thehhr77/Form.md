@@ -196,6 +196,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .aw-target { color: #85887f; font-size: 11px; }
 .aw-done-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 11px; font-weight: var(--weight-semibold); }
 .aw-done-badge .icon { width: 13px; height: 13px; }
+.aw-superset-badge { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 11px; font-weight: var(--weight-semibold); }
+.aw-superset-badge .icon { width: 12px; height: 12px; }
 .aw-sets { display: grid; gap: 6px; }
 .aw-set-row { display: flex; align-items: center; gap: var(--space-2); }
 .aw-set-row .routine-stepper { flex: 1 1 0; min-width: 0; }
@@ -569,7 +571,10 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .mode-switch button { min-height: 36px; padding: 0 16px; color: var(--text-muted); background: transparent; border: none; border-radius: 999px; font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: color .15s ease, background-color .15s ease; }
 .mode-switch button[aria-pressed="true"] { color: var(--accent); background: rgba(var(--accent-rgb), .16); }
 .mode-switch--compact button { min-height: 26px; padding: 0 10px; font-size: 11px; }
-.routine-mode-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.mode-switch button[data-superset-toggle].linking { color: var(--accent); background: transparent; border: 1px dashed var(--accent); }
+.routine-item.superset { box-shadow: inset 3px 0 0 0 var(--accent); }
+.routine-mode-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.routine-mode-row .mode-switch:nth-child(2) { margin-left: auto; }
 .modal-expand-btn { position: absolute; top: 10px; right: 10px; z-index: 4; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: #ffffff; background: rgba(0, 0, 0, .55); border: none; border-radius: 50%; cursor: pointer; appearance: none; }
 .modal-expand-btn:active { background: rgba(0, 0, 0, .75); }
 .modal-expand-btn .icon { width: 13px; height: 13px; }
@@ -920,8 +925,9 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .progress-log-paste button { min-height: var(--control-size); color: var(--text-soft); background: var(--surface-strong); border: none; font-weight: var(--weight-semibold); }
 
 .vault-path-prefix { color: var(--text-muted); font-size: 12px; font-weight: var(--weight-medium); flex-shrink: 0; }
-.vault-path-input { flex: 0 1 110px; min-width: 70px; width: 110px; min-height: 34px; padding: 4px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-medium); }
-.vault-path-input:focus { outline: none; border-color: var(--accent); }
+.vault-path-input { flex: 0 1 auto; min-width: 4ch; max-width: 100%; width: auto; padding: 0; color: var(--text); background: transparent; border: none; border-bottom: 1px solid transparent; border-radius: 0; font-size: 12px; font-weight: var(--weight-medium); cursor: text; caret-color: var(--accent); field-sizing: content; }
+.vault-path-input:focus { outline: none; }
+.vault-path-input.editing { border-bottom-color: var(--accent); }
 .vault-reload-btn { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: none; border-radius: 50%; cursor: pointer; appearance: none; }
 .vault-reload-btn:active { color: var(--text); background: var(--surface-strong); }
 .vault-reload-btn .icon { width: 16px; height: 16px; }

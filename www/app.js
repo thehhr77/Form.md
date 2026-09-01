@@ -268,6 +268,7 @@ const state={
   overlay:{active:null,returnFocus:{}},
   mobileTab:'workout',
   planSection:'routines',
+  supersetLinking:null,
   fuel:loadFuelState(),
   fuelSelectedDate:localDateValue()
 };
@@ -292,8 +293,12 @@ const VAULT_SAVE_DEBOUNCE = 200;
 
 /* --- folder name sanitization --- */
 function sanitizeVaultFolder(name) {
-  const cleaned = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
-  return cleaned.slice(0, 64) || VAULT_DEFAULT_FOLDER;
+  const segments = String(name || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((segment) => segment.replace(/[:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 64))
+    .filter((segment) => segment && segment !== '.' && segment !== '..');
+  return segments.join('/') || VAULT_DEFAULT_FOLDER;
 }
 
 /* --- FS_ADAPTER --- */
@@ -399,10 +404,13 @@ function parseRoutinesMd(text) {
       const weighted = /\bweighted\b/i.test(exMatch[4] || '') ? true : undefined;
       const unweighted = /\bunweighted\b/i.test(exMatch[4] || '') ? true : undefined;
       const unit = /\bsec\b/i.test(exMatch[4] || '') ? 'sec' : (/\bmin\b/i.test(exMatch[4] || '') ? 'min' : undefined);
-      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 0, 60, DEFAULTS.sets), ...(mode ? { mode } : {}), ...(unit ? { unit } : {}), ...(weighted ? { weighted: true } : {}), ...(unweighted ? { unweighted: true } : {}) });
+      const supersetMatch = /\bss(\d+)(\d)\b/i.exec(exMatch[4] || '');
+      const superset = supersetMatch ? supersetMatch[1] : undefined;
+      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 0, 60, DEFAULTS.sets), ...(mode ? { mode } : {}), ...(unit ? { unit } : {}), ...(weighted ? { weighted: true } : {}), ...(unweighted ? { unweighted: true } : {}), ...(superset ? { superset } : {}) });
       continue;
     }
   }
+  routines.forEach(sanitizeSupersetGroups);
   return routines.filter(r => r.items.length > 0);
 }
 
@@ -596,10 +604,11 @@ const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function routinesToMd(routines) {
   const lines = ['# Routines', ''];
   for (const r of routines) {
+    const labels = supersetExportLabels(r);
     lines.push(`## ${r.name}`);
     if (r.liked) lines.push('- liked');
     for (const item of r.items) {
-      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}`);
+      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}${labels.has(item) ? ` ${labels.get(item)}` : ''}`);
     }
     lines.push('');
   }
@@ -1101,7 +1110,10 @@ async function reloadVault() {
 
 function updateVaultUI() {
   const input = document.getElementById('vaultFolderPath');
-  if (input && document.activeElement !== input) input.value = VAULT.folder;
+  if (input && document.activeElement !== input) {
+    input.value = VAULT.folder;
+    input.size = input.value.length || input.placeholder.length;
+  }
 }
 
 function renderEverything() {
@@ -1803,7 +1815,8 @@ function saveRoutines(){
 }
 function routineToText(routine=currentRoutine()){
   if(!routine)return'';
-  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}`)].join('\n');
+  const labels=supersetExportLabels(routine);
+  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}${labels.has(item) ? ` ${labels.get(item)}` : ''}`)].join('\n');
 }
 function routinesToText(){return state.routines.map(routineToText).filter(Boolean).join('\n\n')}
 function showPastePanel(panelId,textId,text='',{toggleId=null,alwaysSet=false}={}){
@@ -1874,7 +1887,9 @@ function parseRoutineText(text){
       const weighted=/\bweighted\b/i.test(match[4])?true:undefined;
       const unweighted=/\bunweighted\b/i.test(match[4])?true:undefined;
       const unit=/\bsec\b/i.test(match[4])?'sec':(/\bmin\b/i.test(match[4])?'min':undefined);
-      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],0,60),...(mode?{mode}:{}),...(unit?{unit}:{}),...(weighted?{weighted:true}:{}),...(unweighted?{unweighted:true}:{})});
+      const supersetMatch=/\bss(\d+)(\d)\b/i.exec(match[4]);
+      const superset=supersetMatch?supersetMatch[1]:undefined;
+      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],0,60),...(mode?{mode}:{}),...(unit?{unit}:{}),...(weighted?{weighted:true}:{}),...(unweighted?{unweighted:true}:{}),...(superset?{superset}:{})});
       continue;
     }
     if(line.includes('*'))throw new Error('Invalid');
@@ -1883,6 +1898,7 @@ function parseRoutineText(text){
     seen=new Set();
   }
   if(!routines.length||routines.some(item=>!item.items.length))throw new Error('Empty routine');
+  routines.forEach(sanitizeSupersetGroups);
   return routines;
 }
 async function importRoutineText(mode='replace'){
@@ -1989,8 +2005,9 @@ function renderRoutineDrawer(){
         if(!exercise)return'';
         const timed=routineItemMode(item,exercise)==='timed';
         const unit=routineItemUnit(item,exercise);
-        const modeRow=`<div class="routine-mode-row"><div class="mode-switch mode-switch--compact"><button type="button" data-mode="reps" aria-pressed="${timed?'false':'true'}">Reps</button><button type="button" data-mode="timed" aria-pressed="${timed?'true':'false'}">Timed</button></div><div class="mode-switch mode-switch--compact"><button type="button" data-item-toggle aria-pressed="${timed?(unit==='min'?'true':'false'):(routineItemWeighted(item,exercise)?'true':'false')}" aria-label="${timed?'Toggle minutes or seconds':'Toggle weight tracking'}">${timed?'Mins':'Weight'}</button></div></div>`;
-        return`<div class="routine-item" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Decrease ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${timed&&unit==='min'?routineSecondsDisplay(item.reps,'min'):item.reps}" readonly tabindex="-1" aria-label="${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Increase ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
+        const supersetLinked=Boolean(item.superset);
+        const modeRow=`<div class="routine-mode-row"><div class="mode-switch mode-switch--compact"><button type="button" data-mode="reps" aria-pressed="${timed?'false':'true'}">Reps</button><button type="button" data-mode="timed" aria-pressed="${timed?'true':'false'}">Timed</button></div><div class="mode-switch mode-switch--compact"><button type="button" data-superset-toggle aria-pressed="${supersetLinked?'true':'false'}"${state.supersetLinking===item.exerciseId?' class="linking"':''} aria-label="${supersetLinked?'Remove superset pairing':'Pair in a superset'}">Link</button></div><div class="mode-switch mode-switch--compact"><button type="button" data-item-toggle aria-pressed="${timed?(unit==='min'?'true':'false'):(routineItemWeighted(item,exercise)?'true':'false')}" aria-label="${timed?'Toggle minutes or seconds':'Toggle weight tracking'}">${timed?'Mins':'Weight'}</button></div></div>`;
+        return`<div class="routine-item${supersetLinked?' superset':''}" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Decrease ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${timed&&unit==='min'?routineSecondsDisplay(item.reps,'min'):item.reps}" readonly tabindex="-1" aria-label="${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Increase ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
       }).join('');
     }
   } else {
@@ -2090,6 +2107,42 @@ function seedAwSets(routine){
 function routineItemMode(item,exercise){return item?.mode==='timed'||item?.mode==='reps'?item.mode:(isTimedCardioExercise(exercise)?'timed':'reps')}
 function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(item?.weighted)return true;if(item?.mode==='timed'||item?.mode==='reps')return false;return exerciseHasWeight(exercise)}
 function routineItemUnit(item,exercise){if(item?.unit==='sec'||item?.unit==='min')return item.unit;return isTimedCardioExercise(exercise)?'min':'sec'}
+function supersetPartner(routine,item){
+  if(!routine||!item||!item.superset)return null;
+  return routine.items.find(candidate=>candidate!==item&&candidate.superset===item.superset)||null;
+}
+function unlinkSupersetItem(routine,item){
+  if(!routine||!item||!item.superset)return;
+  const partner=supersetPartner(routine,item);
+  delete item.superset;
+  if(partner)delete partner.superset;
+}
+function linkSupersetItems(routine,first,second){
+  if(!routine||!first||!second||first===second)return false;
+  unlinkSupersetItem(routine,first);
+  unlinkSupersetItem(routine,second);
+  const token=Math.random().toString(36).slice(2,8);
+  first.superset=token;
+  second.superset=token;
+  return true;
+}
+function sanitizeSupersetGroups(routine){
+  if(!routine)return;
+  const counts=new Map();
+  routine.items.forEach(item=>{if(item.superset)counts.set(item.superset,(counts.get(item.superset)||0)+1)});
+  routine.items.forEach(item=>{if(item.superset&&counts.get(item.superset)!==2)delete item.superset});
+}
+function supersetExportLabels(routine){
+  const labels=new Map(),groupNumbers=new Map(),memberSeen=new Map();
+  for(const item of routine?.items||[]){
+    if(!item.superset)continue;
+    if(!groupNumbers.has(item.superset))groupNumbers.set(item.superset,groupNumbers.size+1);
+    const group=groupNumbers.get(item.superset),member=(memberSeen.get(item.superset)||0)+1;
+    memberSeen.set(item.superset,member);
+    labels.set(item,`ss${group}${member}`);
+  }
+  return labels;
+}
 function routineSecondsDisplay(seconds,unit){return unit==='min'?String(Math.round(((Number(seconds)||0)/60)*100)/100):String(Math.round(Number(seconds))||0)}
 function lastLoggedDurationFor(exerciseId){
   const logs=[...state.progress.logs].filter(log=>log.exerciseId===exerciseId&&isTimedCardioLog(log)).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
@@ -2171,6 +2224,27 @@ function endActiveWorkout(save=true){
   render();
   toast(save?`Workout complete · ${done}/${total}`:'Workout discarded');
 }
+function awRestDecision(routine,item){
+  const myPending=awSets(item.exerciseId).some(row=>!row.done);
+  const partner=supersetPartner(routine,item);
+  if(!partner||awSkipped(partner.exerciseId)||awIsComplete(partner.exerciseId)){
+    if(myPending)return{type:'between-sets',toastName:null};
+    const nextUp=awRows().find(({exercise})=>exercise.id!==item.exerciseId&&!awSkipped(exercise.id)&&!awIsComplete(exercise.id));
+    return{type:nextUp?'between-exercises':'none',toastName:null};
+  }
+  const firstIsMe=routine.items.indexOf(item)<routine.items.indexOf(partner);
+  if(firstIsMe){
+    const partnerPending=awSets(partner.exerciseId).some(row=>!row.done);
+    if(partnerPending)return{type:'none',toastName:myPending?null:(getExercise(partner.exerciseId)?.name||null)};
+    if(myPending)return{type:'between-sets',toastName:null};
+    const nextUp=awRows().find(({exercise})=>exercise.id!==item.exerciseId&&!awSkipped(exercise.id)&&!awIsComplete(exercise.id));
+    return{type:nextUp?'between-exercises':'none',toastName:null};
+  }
+  const pairPending=myPending||awSets(partner.exerciseId).some(row=>!row.done);
+  if(pairPending)return{type:'between-sets',toastName:null};
+  const nextUp=awRows().find(({exercise})=>exercise.id!==item.exerciseId&&!awSkipped(exercise.id)&&!awIsComplete(exercise.id));
+  return{type:nextUp?'between-exercises':'none',toastName:null};
+}
 async function handleAwAction(action,exerciseId,delta,rowIndex){
   if(action==='start')return startActiveWorkout();
   const session=state.activeWorkout;if(!session)return;
@@ -2240,9 +2314,10 @@ async function handleAwAction(action,exerciseId,delta,rowIndex){
   saveActiveWorkout();
   syncAwLog(exercise,item);
   if(restTrigger&&state.restPrefs.enabled){
-    const moreSetsHere=rows.some(row=>!row.done);
-    const otherExercisesLeft=awRows().some(({exercise:other})=>other.id!==exercise.id&&!awSkipped(other.id)&&!awIsComplete(other.id));
-    if(moreSetsHere||otherExercisesLeft)startAwRest(moreSetsHere?state.restPrefs.betweenSets:state.restPrefs.betweenExercise);
+    const decision=awRestDecision(routine,item);
+    if(decision.type==='between-sets')startAwRest(state.restPrefs.betweenSets);
+    else if(decision.type==='between-exercises')startAwRest(state.restPrefs.betweenExercise);
+    else if(decision.toastName)toast(`Superset — next: ${decision.toastName}`);
   }
   render();
 }
@@ -2255,12 +2330,18 @@ function renderActiveWorkout(){
     return{item,exercise,skipped,complete:!skipped&&awIsComplete(exercise.id)};
   });
   const activeRow=rowStates.find(row=>!row.skipped&&!row.complete)||null;
+  const activeItems=new Set();
+  if(activeRow){
+    activeItems.add(activeRow.item.exerciseId);
+    const partnerItem=supersetPartner(session&&state.routines.find(routine=>routine.id===state.activeWorkout.routineId),activeRow.item);
+    if(partnerItem&&!awSkipped(partnerItem.exerciseId)&&!awIsComplete(partnerItem.exerciseId))activeItems.add(partnerItem.exerciseId);
+  }
   const rowHtml=rowStates.map(row=>{
     const{item,exercise,skipped,complete}=row;
     const sets=awSets(exercise.id);
     const timed=routineItemMode(item,exercise)==='timed';
     const showWeight=routineItemWeighted(item,exercise);
-    const isActive=row===activeRow;
+    const isActive=activeItems.has(item.exerciseId);
     const mediaSrc=isActive?esc(exercise.gif_url||exercise.image):esc(exercise.image);
     const setsHead=timed
       ?`<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Duration</span><span class="aw-h-label">Distance</span><span class="aw-h-check"></span></div>`
@@ -2296,7 +2377,7 @@ function renderActiveWorkout(){
           <button type="button" class="aw-media" data-aw-action="open" data-exercise="${exercise.id}" aria-label="Open ${esc(exercise.name)} details"><img src="${mediaSrc}" alt="" loading="lazy" data-aw-media data-aw-exercise="${exercise.id}"></button>
           <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${routineSecondsDisplay(item.reps,routineItemUnit(item,exercise))} ${routineItemUnit(item,exercise)==='min'?'min':'sec'} each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
         </div>
-        <div class="aw-row-badges">${complete&&!skipped?`<span class="aw-done-badge">${icon('check')} Done</span>`:''}${skipped?`<span class="aw-skipped-badge">Skipped</span>`:''}</div>
+        <div class="aw-row-badges">${item.superset?`<span class="aw-superset-badge">${icon('link')} Superset</span>`:''}${complete&&!skipped?`<span class="aw-done-badge">${icon('check')} Done</span>`:''}${skipped?`<span class="aw-skipped-badge">Skipped</span>`:''}</div>
       </div>
       ${isActive?`<div class="aw-sets">${setsHead+setRows}</div>`:''}
       <div class="aw-addremove">
@@ -2540,7 +2621,7 @@ function resetProgressDraft() {
   const latestWeights = Array.isArray(latest?.setWeights) ? latest.setWeights.map(Number).filter((value) => value > 0) : [];
   let seedWeight = DEFAULTS.weight;
   if (latestWeights.length) seedWeight = latestWeights[latestWeights.length - 1];
-  else if (!latest?.duration && !latest?.distance && Number(latest.weight) > 0) seedWeight = Number(latest.weight);
+  else if (!latest?.duration && !latest?.distance && Number(latest?.weight) > 0) seedWeight = Number(latest.weight);
   const strengthLog = latest && !latest.duration && !latest.distance;
   const seedRepsSource = Array.isArray(latest?.setReps) ? latest.setReps.map(Number).filter((value) => value >= 1) : [];
   const baseReps = clamp(strengthLog && Number(latest.reps) >= 1 ? Math.round(Number(latest.reps)) : (latestReps ?? DEFAULTS.reps), 1, LIMITS.reps);
@@ -3871,6 +3952,43 @@ $('#routineItems').addEventListener('click', (event) => {
     }
     saveRoutines(); renderRoutineDrawer(); return;
   }
+  const supersetButton = event.target.closest('[data-superset-toggle]');
+  if (supersetButton && item) {
+    if (state.supersetLinking === item.exerciseId) {
+      state.supersetLinking = null;
+      renderRoutineDrawer();
+      return;
+    }
+    if (state.supersetLinking) {
+      const first = routine.items.find((candidate) => candidate.exerciseId === state.supersetLinking);
+      if (first && first !== item) {
+        linkSupersetItems(routine, first, item);
+        const from = routine.items.indexOf(item);
+        routine.items.splice(from, 1);
+        routine.items.splice(routine.items.indexOf(first) + 1, 0, item);
+        state.supersetLinking = null;
+        saveRoutines();
+        renderRoutineDrawer();
+        toast('Superset created');
+      }
+      return;
+    }
+    if (item.superset) {
+      unlinkSupersetItem(routine, item);
+      saveRoutines();
+      renderRoutineDrawer();
+      toast('Superset removed');
+      return;
+    }
+    if (routine.items.length < 2) {
+      toast('Add another exercise to pair');
+      return;
+    }
+    state.supersetLinking = item.exerciseId;
+    renderRoutineDrawer();
+    toast('Select the exercise to pair');
+    return;
+  }
   const itemToggleButton = event.target.closest('[data-item-toggle]');
   if (itemToggleButton && item) {
     const exerciseForItem = getExercise(item.exerciseId);
@@ -3909,6 +4027,9 @@ $('#routineItems').addEventListener('click', (event) => {
     return;
   }
   if (event.target.closest('.routine-remove')) {
+    const removed = routine.items.find((candidate) => candidate.exerciseId === row.dataset.exerciseId);
+    if (removed) unlinkSupersetItem(routine, removed);
+    if (state.supersetLinking === row.dataset.exerciseId) state.supersetLinking = null;
     routine.items = routine.items.filter((candidate) => candidate.exerciseId !== row.dataset.exerciseId);
     saveRoutines(); renderRoutineDrawer();
   }
@@ -5268,15 +5389,23 @@ initModalSwipeDown();
   VAULT.folder = sanitizeVaultFolder(stored);
   input.value = VAULT.folder;
   updateVaultUI();
+  const lockInput = () => { input.readOnly = true; input.classList.remove('editing'); };
+  const unlockInput = () => {
+    if (!input.readOnly) return;
+    input.readOnly = false;
+    input.classList.add('editing');
+  };
   const commit = () => {
     const name = sanitizeVaultFolder(input.value);
-    input.value = name;
+    lockInput();
+    updateVaultUI();
     if (name !== VAULT.folder) switchVault(name);
-    else updateVaultUI();
   };
+  input.addEventListener('focus', unlockInput);
+  input.addEventListener('input', () => { input.size = input.value.length || input.placeholder.length; });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); commit(); input.blur(); }
-    else if (e.key === 'Escape') { e.preventDefault(); input.value = VAULT.folder; input.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); input.value = VAULT.folder; lockInput(); input.blur(); }
   });
   input.addEventListener('blur', commit);
   if (reload) reload.addEventListener('click', () => reloadVault());

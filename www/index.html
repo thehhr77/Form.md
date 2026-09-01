@@ -60,6 +60,7 @@
   <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
   <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
   <symbol id="icon-minimize" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
+  <symbol id="icon-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
 </svg>
 
 <div class="app">
@@ -785,7 +786,7 @@
             <div class="settings-row">
               <span class="settings-row-main"><svg class="icon"><use href="#icon-folder"/></svg><span>Vault folder</span></span>
               <span class="vault-path-prefix">Documents/</span>
-              <input id="vaultFolderPath" class="vault-path-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false">
+              <input id="vaultFolderPath" class="vault-path-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false" readonly>
               <button type="button" class="vault-reload-btn" id="vaultReloadBtn" aria-label="Reload vault from disk"><svg class="icon"><use href="#icon-reset"/></svg></button>
             </div>
             <button type="button" class="settings-row settings-row-action" id="progressCopyLog">
