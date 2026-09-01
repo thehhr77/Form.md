@@ -180,7 +180,7 @@ $('#progressDateGrid').innerHTML=Array.from({length:6},(_,week)=>`<div role="row
 function openProgressDatePicker(returnFocus=document.activeElement){const selected=parseLocalDate($('#progressDate').value||localDateValue());progressDatePickerMonth=new Date(selected.getFullYear(),selected.getMonth(),1,12);progressDatePickerReturnFocus=returnFocus;renderProgressDatePicker();const picker=$('#progressDatePicker');picker.hidden=false;$('#progressDateButton').setAttribute('aria-expanded','true');picker.classList.add('open');picker.querySelector(`[data-date="${$('#progressDate').value}"]`)?.focus({preventScroll:true})}
 function closeProgressDatePicker(restoreFocus=true){const picker=$('#progressDatePicker');if(!picker||picker.hidden)return;picker.classList.remove('open');$('#progressDateButton').setAttribute('aria-expanded','false');picker.hidden=true;if(restoreFocus&&progressDatePickerReturnFocus?.isConnected)progressDatePickerReturnFocus.focus({preventScroll:true});progressDatePickerReturnFocus=null}
 
-function normalizeRoutine(routine){if(!routine||typeof routine!=='object'||!String(routine.id??''))return null;const seen=new Set();return{id:String(routine.id),name:String(routine.name??'Routine').trim().slice(0,LIMITS.routineName)||'Routine',liked:Boolean(routine.liked),items:(Array.isArray(routine.items)?routine.items:[]).filter(item=>item&&VALID_EXERCISE_IDS.has(String(item.exerciseId))&&!seen.has(String(item.exerciseId))&&seen.add(String(item.exerciseId))).map(item=>({exerciseId:String(item.exerciseId),sets:clamp(item.sets,1,LIMITS.sets),reps:clamp(item.reps,1,item.mode==='timed'?LIMITS.duration*60:LIMITS.reps),...(item.mode==='timed'?{mode:'timed'}:item.mode==='reps'?{mode:'reps'}:{}),...(item.weighted?{weighted:true}:{}),...(item.unweighted?{unweighted:true}:{})}))}}
+function normalizeRoutine(routine){if(!routine||typeof routine!=='object'||!String(routine.id??''))return null;const seen=new Set();return{id:String(routine.id),name:String(routine.name??'Routine').trim().slice(0,LIMITS.routineName)||'Routine',liked:Boolean(routine.liked),items:(Array.isArray(routine.items)?routine.items:[]).filter(item=>item&&VALID_EXERCISE_IDS.has(String(item.exerciseId))&&!seen.has(String(item.exerciseId))&&seen.add(String(item.exerciseId))).map(item=>({exerciseId:String(item.exerciseId),sets:clamp(item.sets,1,LIMITS.sets),reps:clamp(item.reps,1,item.mode==='timed'?(item.unit==='sec'?LIMITS.duration*60:LIMITS.duration):LIMITS.reps),...(item.mode==='timed'?{mode:'timed',...(item.unit==='sec'||item.unit==='min'?{unit:item.unit}:{})}:item.mode==='reps'?{mode:'reps'}:{}),...(item.weighted?{weighted:true,weightKg:Math.round(clamp(Number(item.weightKg)||0,0,LIMITS.weight)*10)/10}:{}),...(item.unweighted?{unweighted:true}:{})}))}}
 function sanitizeSetWeights(value){if(!Array.isArray(value))return null;const list=value.map(entry=>entry===''||entry==null?0:Math.min(LIMITS.weight,Math.max(0,Number(entry)||0))).slice(0,LIMITS.sets);return list.length?list:null}
 function sanitizeSetReps(value,fallbackLength){if(!Array.isArray(value))return null;const list=value.map(entry=>clamp(Number(entry)||1,1,LIMITS.reps)).slice(0,fallbackLength||LIMITS.sets);return list.length?list:null}
 function setRepsFromUniform(reps,count){const value=clamp(Number(reps)||1,1,LIMITS.reps);return count>0?Array.from({length:count},()=>value):null}
@@ -399,7 +399,9 @@ function parseRoutinesMd(text) {
       const mode = /\btimed\b/i.test(exMatch[4] || '') ? 'timed' : (/\breps\b/i.test(exMatch[4] || '') ? 'reps' : undefined);
       const weighted = /\bweighted\b/i.test(exMatch[4] || '') ? true : undefined;
       const unweighted = /\bunweighted\b/i.test(exMatch[4] || '') ? true : undefined;
-      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 1, mode === 'timed' ? LIMITS.duration * 60 : LIMITS.reps, DEFAULTS.reps), ...(mode ? { mode } : {}), ...(weighted ? { weighted: true } : {}), ...(unweighted ? { unweighted: true } : {}) });
+      const unit = /\bsec\b/i.test(exMatch[4] || '') ? 'sec' : (/\bmin\b/i.test(exMatch[4] || '') ? 'min' : undefined);
+      const weightKg = weighted ? (Number((exMatch[4] || '').match(/(\d+(?:\.\d+)?)\s*kg/i)?.[1]) || 0) : undefined;
+      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 1, mode === 'timed' ? LIMITS.duration * 60 : LIMITS.reps, DEFAULTS.reps), ...(mode ? { mode } : {}), ...(unit ? { unit } : {}), ...(weighted ? { weighted: true, weightKg } : {}), ...(unweighted ? { unweighted: true } : {}) });
       continue;
     }
   }
@@ -599,7 +601,7 @@ function routinesToMd(routines) {
     lines.push(`## ${r.name}`);
     if (r.liked) lines.push('- liked');
     for (const item of r.items) {
-      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ' timed' : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}`);
+      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ` weighted ${formatWeightValue(Number(item.weightKg) || 0)}kg` : ''}${item.unweighted ? ' unweighted' : ''}`);
     }
     lines.push('');
   }
@@ -1803,7 +1805,7 @@ function saveRoutines(){
 }
 function routineToText(routine=currentRoutine()){
   if(!routine)return'';
-  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ' timed' : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}${item.unweighted ? ' unweighted' : ''}`)].join('\n');
+  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ` timed ${item.unit === 'sec' ? 'sec' : 'min'}` : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ` weighted ${formatWeightValue(Number(item.weightKg) || 0)}kg` : ''}${item.unweighted ? ' unweighted' : ''}`)].join('\n');
 }
 function routinesToText(){return state.routines.map(routineToText).filter(Boolean).join('\n\n')}
 function showPastePanel(panelId,textId,text='',{toggleId=null,alwaysSet=false}={}){
@@ -1873,7 +1875,8 @@ function parseRoutineText(text){
       const mode=/\btimed\b/i.test(match[4])?'timed':(/\breps\b/i.test(match[4])?'reps':undefined);
       const weighted=/\bweighted\b/i.test(match[4])?true:undefined;
       const unweighted=/\bunweighted\b/i.test(match[4])?true:undefined;
-      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],1,mode==='timed'?LIMITS.duration*60:LIMITS.reps),...(mode?{mode}:{}),...(weighted?{weighted:true}:{}),...(unweighted?{unweighted:true}:{})});
+      const unit=/\bsec\b/i.test(match[4])?'sec':(/\bmin\b/i.test(match[4])?'min':undefined); const weightKg=weighted?(Number((match[4]||'').match(/(\d+(?:\.\d+)?)\s*kg/i)?.[1])||0):undefined;
+      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],1,mode==='timed'?LIMITS.duration*60:LIMITS.reps),...(mode?{mode}:{}),...(unit?{unit}:{}),...(weighted?{weighted:true,weightKg}:{}),...(unweighted?{unweighted:true}:{})});
       continue;
     }
     if(line.includes('*'))throw new Error('Invalid');
@@ -1987,8 +1990,9 @@ function renderRoutineDrawer(){
         const exercise=getExercise(item.exerciseId);
         if(!exercise)return'';
         const timed=routineItemMode(item,exercise)==='timed';
-        const unit=timed&&item.unit==='sec'?'sec':'min';
+        const unit=routineItemUnit(item,exercise);
         const modeRow=`<div class="routine-mode-row"><div class="mode-switch mode-switch--compact"><button type="button" data-mode="reps" aria-pressed="${timed?'false':'true'}">Reps</button><button type="button" data-mode="timed" aria-pressed="${timed?'true':'false'}">Timed</button></div>${timed?`<button type="button" class="weight-toggle" data-unit-toggle aria-pressed="${unit==='min'?'true':'false'}">Mins</button>`:`<button type="button" class="weight-toggle" data-weight-toggle aria-pressed="${routineItemWeighted(item,exercise)?'true':'false'}">Weight</button>`}</div>`;
+        const weightField=!timed&&routineItemWeighted(item,exercise)?`<div class="routine-field routine-field-weight"><label>Weight kg</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="weight" data-step="1" aria-label="Decrease weight for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-weight" value="${formatWeightValue(Number(item.weightKg)||0)}" readonly tabindex="-1" aria-label="Weight kg for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="weight" data-step="1" aria-label="Increase weight for ${esc(exercise.name)}">${icon('plus')}</button></div></div>`:'';
         return`<div class="routine-item${timed?' item-timed':''}" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Decrease ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${timed&&unit==='min'?routineSecondsDisplay(item.reps,'min'):item.reps}" readonly tabindex="-1" aria-label="${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Increase ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
       }).join('');
     }
@@ -2080,7 +2084,7 @@ function seedAwSets(routine){
       sets[item.exerciseId]=Array.from({length:clamp(item.sets,1,LIMITS.sets)},()=>({duration:lastDuration,distance:lastDistance,done:false}));
       return;
     }
-    const lastWeight=latestLogFor(item.exerciseId)?.weight||0;
+    const lastWeight=Number(item.weightKg)>0?Number(item.weightKg):(latestLogFor(item.exerciseId)?.weight||0);
     sets[item.exerciseId]=Array.from({length:item.sets},()=>({reps:item.reps,weight:routineItemWeighted(item,exercise)?lastWeight:null,done:false}));
   });
   return sets;
@@ -2088,6 +2092,7 @@ function seedAwSets(routine){
 function exerciseIsBodyWeight(exercise){return exercise?.equipment===BODY_WEIGHT}
 function routineItemMode(item,exercise){return item?.mode==='timed'||item?.mode==='reps'?item.mode:(isTimedCardioExercise(exercise)?'timed':'reps')}
 function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(item?.weighted)return true;if(item?.mode==='timed'||item?.mode==='reps')return false;return exerciseHasWeight(exercise)}
+function routineItemUnit(item,exercise){if(item?.unit==='sec'||item?.unit==='min')return item.unit;return isTimedCardioExercise(exercise)?'min':'sec'}
 function routineSecondsDisplay(seconds,unit){return unit==='min'?String(Math.round(((Number(seconds)||0)/60)*100)/100):String(Math.round(Number(seconds))||0)}
 function awCounts(){
   const rows=awRows().filter(({exercise})=>!awSkipped(exercise.id)),session=state.activeWorkout;
@@ -2274,7 +2279,7 @@ function renderActiveWorkout(){
       <div class="aw-row-top">
         <div class="aw-main">
           <button type="button" class="aw-media" data-aw-action="open" data-exercise="${exercise.id}" aria-label="Open ${esc(exercise.name)} details"><img src="${mediaSrc}" alt="" loading="lazy" data-aw-media data-aw-exercise="${exercise.id}"></button>
-          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${item.reps}s each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
+          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${routineSecondsDisplay(item.reps,routineItemUnit(item,exercise))}${routineItemUnit(item,exercise)==='min'?' min':'s'} each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps${routineItemWeighted(item,exercise)&&Number(item.weightKg)>0?` @ ${formatWeightValue(Number(item.weightKg))} kg`:''} · ${esc(title(exercise.target))}`}</span></div>
         </div>
         <div class="aw-row-badges">${complete&&!skipped?`<span class="aw-done-badge">${icon('check')} Done</span>`:''}${skipped?`<span class="aw-skipped-badge">Skipped</span>`:''}</div>
       </div>
@@ -3854,8 +3859,8 @@ $('#routineItems').addEventListener('click', (event) => {
   }
   const unitButton = event.target.closest('[data-unit-toggle]');
   if (unitButton && item) {
-    if (item.unit === 'sec') delete item.unit;
-    else item.unit = 'sec';
+    if (item.unit === 'sec') { item.unit = 'min'; item.reps = Math.max(60, Math.round(((Number(item.reps) || 0) / 60) * 100) / 100); }
+    else { item.unit = 'sec'; item.reps = Math.max(1, Math.round((Number(item.reps) || 0) * 60)); }
     saveRoutines(); renderRoutineDrawer(); return;
   }
   const weightButton = event.target.closest('[data-weight-toggle]');
@@ -3874,13 +3879,18 @@ $('#routineItems').addEventListener('click', (event) => {
   if (step && item) {
     const field = step.dataset.field;
     const timedItem = item.mode === 'timed';
-    const unitSec = timedItem && item.unit === 'sec';
-    const scale = field === 'reps' && timedItem ? (unitSec ? 1 : 60) : 1;
-    const delta = (step.classList.contains('routine-increase') ? 1 : -1) * Number(step.dataset.step || 1);
-    const limit = field === 'sets' ? LIMITS.sets : (timedItem ? LIMITS.duration * 60 : LIMITS.reps);
-    if (timedItem && field === 'reps' && !unitSec) item.reps = clamp(Math.round(((Number(item.reps) || 0) + delta * 60) * 100) / 100, 60, limit);
-    else if (timedItem && field === 'reps' && unitSec) item.reps = clamp((Number(item.reps) || 0) + delta, 1, limit);
-    else item[field] = clamp(item[field] + delta, 1, limit);
+    const unitSec = timedItem && routineItemUnit(item, getExercise(item.exerciseId)) === 'sec';
+    const dir = step.classList.contains('routine-increase') ? 1 : -1;
+    if (field === 'weight') {
+      item.weightKg = Math.round(clamp((Number(item.weightKg) || 0) + dir * Number(step.dataset.step || 2.5), 0, LIMITS.weight) * 10) / 10;
+    } else if (field === 'reps' && timedItem) {
+      const delta = dir * Number(step.dataset.step || (unitSec ? 5 : 1));
+      const limit = LIMITS.duration * 60;
+      item.reps = clamp((Number(item.reps) || 0) + delta, 1, limit);
+    } else {
+      const limit = field === 'sets' ? LIMITS.sets : LIMITS.reps;
+      item[field] = clamp(item[field] + dir, 1, limit);
+    }
     saveRoutines(); renderRoutineDrawer(); return;
   }
   const move = event.target.closest('.routine-up, .routine-down');
