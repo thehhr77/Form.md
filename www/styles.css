@@ -573,13 +573,9 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .weight-toggle[aria-pressed="true"] { color: var(--accent); border-color: rgba(var(--accent-rgb), .45); }
 .weight-toggle .icon { width: 13px; height: 13px; }
 .routine-mode-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.modal-expand-btn { position: absolute; top: 10px; right: 10px; z-index: 4; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; color: #ffffff; background: rgba(0, 0, 0, .55); border: none; border-radius: 50%; cursor: pointer; appearance: none; }
+.modal-expand-btn { position: absolute; top: 10px; right: 10px; z-index: 4; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: #ffffff; background: rgba(0, 0, 0, .55); border: none; border-radius: 50%; cursor: pointer; appearance: none; }
 .modal-expand-btn:active { background: rgba(0, 0, 0, .75); }
-.modal-expand-btn .icon { width: 15px; height: 15px; }
-#mediaFullscreen { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 12px; background: #000000; }
-#mediaFullscreen img { max-width: 100%; max-height: 100%; object-fit: contain; background: #ffffff; border-radius: 12px; }
-.media-fullscreen-close { position: absolute; top: calc(env(safe-area-inset-top) + 10px); right: 10px; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; color: #ffffff; background: rgba(28, 28, 30, .8); border: none; border-radius: 50%; cursor: pointer; appearance: none; }
-.media-fullscreen-close .icon { width: 18px; height: 18px; }
+.modal-expand-btn .icon { width: 13px; height: 13px; }
 .custom-select { position: relative; width: 100%; min-width: 0; }
 .custom-select-native { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 .custom-select-button {
@@ -2048,6 +2044,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     position: relative;
     background: transparent;
   }
+  .modal-visual.media-tall { height: 320px; max-height: 340px; }
   .modal-visual-card {
     width: 100%;
     height: 100%;

@@ -2467,6 +2467,7 @@ function openModal(exercise, returnFocus = document.activeElement) {
 
   const image = $('#modalImage');
   const fallback = image.nextElementSibling;
+  document.querySelector('.modal-visual')?.classList.remove('media-tall');
   image.style.display = 'block';
   fallback.style.display = 'none';
   image.src = exercise.gif_url || exercise.image;
@@ -2493,27 +2494,16 @@ $('.modal-visual')?.addEventListener('click', (event) => {
   syncMediaPill(state.activeGifPaused);
 });
 
-function openMediaFullscreen() {
-  const exercise = state.activeExercise;
-  const image = $('#modalImage');
-  const overlay = document.getElementById('mediaFullscreen');
-  const fullImage = document.getElementById('mediaFullscreenImg');
-  if (!exercise || !image || !overlay || !fullImage) return;
-  fullImage.src = image.src;
-  overlay.hidden = false;
-}
-function closeMediaFullscreen() {
-  const overlay = document.getElementById('mediaFullscreen');
-  if (!overlay) return;
-  overlay.hidden = true;
-}
-$('#modalExpandBtn')?.addEventListener('click', openMediaFullscreen);
-$('#mediaFullscreenClose')?.addEventListener('click', closeMediaFullscreen);
-document.getElementById('mediaFullscreen')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) closeMediaFullscreen(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !document.getElementById('mediaFullscreen')?.hidden) closeMediaFullscreen(); });
+$('#modalExpandBtn')?.addEventListener('click', () => {
+  const visual = document.querySelector('.modal-visual');
+  if (!visual) return;
+  const expanded = visual.classList.toggle('media-tall');
+  const button = document.getElementById('modalExpandBtn');
+  if (button) button.setAttribute('aria-label', expanded ? 'Restore size' : 'View full size');
+});
 
 function closeModal(restoreFocus = true) {
-  closeMediaFullscreen();
+  document.querySelector('.modal-visual')?.classList.remove('media-tall');
   const modal = $('#modalBackdrop .modal');
   modal.style.transform = 'translateY(100%)';
   setTimeout(() => {
