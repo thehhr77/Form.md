@@ -2094,6 +2094,20 @@ function routineItemMode(item,exercise){return item?.mode==='timed'||item?.mode=
 function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(item?.weighted)return true;if(item?.mode==='timed'||item?.mode==='reps')return false;return exerciseHasWeight(exercise)}
 function routineItemUnit(item,exercise){if(item?.unit==='sec'||item?.unit==='min')return item.unit;return isTimedCardioExercise(exercise)?'min':'sec'}
 function routineSecondsDisplay(seconds,unit){return unit==='min'?String(Math.round(((Number(seconds)||0)/60)*100)/100):String(Math.round(Number(seconds))||0)}
+function lastLoggedDurationFor(exerciseId){
+  const latest=latestLogFor(exerciseId);
+  if(!latest||!isTimedCardioLog(latest))return null;
+  const durations=Array.isArray(latest.setDurations)&&latest.setDurations.length?latest.setDurations:(sanitizeDurationValue(latest.duration)?[sanitizeDurationValue(latest.duration)]:[]);
+  if(!durations.length)return null;
+  return clamp(Math.round(Number(durations[durations.length-1]))||0,0,LIMITS.duration)||null;
+}
+function lastLoggedRepsFor(exerciseId){
+  const latest=latestLogFor(exerciseId);
+  if(!latest||isTimedCardioLog(latest))return null;
+  if(Array.isArray(latest.setReps)&&latest.setReps.length){const value=clamp(Math.round(Number(latest.setReps[latest.setReps.length-1]))||0,1,LIMITS.reps);return value||null}
+  if(Number(latest.reps)>=1)return clamp(Math.round(Number(latest.reps)),1,LIMITS.reps);
+  return null;
+}
 function awCounts(){
   const rows=awRows().filter(({exercise})=>!awSkipped(exercise.id)),session=state.activeWorkout;
   return{total:rows.length,done:rows.filter(({exercise})=>awIsComplete(exercise.id)).length};
@@ -2521,7 +2535,7 @@ function resetProgressDraft() {
     const latestDistances = Array.isArray(latest?.setDistances) ? latest.setDistances : [];
     const hasTimedHistory = Boolean(timed?.intervals || latestDurations.length);
     const seedDurationMinutes = clamp(latestDurations.length ? latestDurations[latestDurations.length - 1] : (sanitizeDurationValue(latest?.duration) ?? DEFAULTS.duration), 0, LIMITS.duration);
-    const seedDuration = draft.durationUnit === 'sec' ? (hasTimedHistory ? Math.round(seedDurationMinutes * 60) : 30) : seedDurationMinutes;
+    const seedDuration = hasTimedHistory ? (draft.durationUnit === 'sec' ? Math.round(seedDurationMinutes * 60) : seedDurationMinutes) : (draft.durationUnit === 'sec' ? 10 : 1);
     const seedDistance = Math.round(clamp(latestDistances.length ? latestDistances[latestDurations.length - 1] : (sanitizeDistanceValue(latest?.distance) ?? DEFAULTS.distance), 0, LIMITS.distance) * 10) / 10;
     Object.assign(state.progress.draft, { sets: seedIntervals, setDurations: Array.from({ length: seedIntervals }, () => seedDuration), setDistances: Array.from({ length: seedIntervals }, () => seedDistance), notes: '' });
     $('#progressNotes').value = '';
@@ -3853,14 +3867,23 @@ $('#routineItems').addEventListener('click', (event) => {
   const item = routine.items.find((candidate) => candidate.exerciseId === row.dataset.exerciseId);
   const modeButton = event.target.closest('[data-mode]');
   if (modeButton && item) {
-    item.mode = modeButton.dataset.mode === 'timed' ? 'timed' : 'reps';
-    if (item.mode !== 'timed' && item.reps > LIMITS.reps) item.reps = LIMITS.reps;
+    const exerciseForItem = getExercise(item.exerciseId);
+    if (modeButton.dataset.mode === 'timed') {
+      item.mode = 'timed';
+      item.unit = isTimedCardioExercise(exerciseForItem) ? 'min' : 'sec';
+      const mins = lastLoggedDurationFor(item.exerciseId);
+      item.reps = mins != null ? (item.unit === 'sec' ? Math.max(10, Math.round(mins * 60)) : Math.max(1, mins)) : (item.unit === 'sec' ? 10 : 1);
+    } else {
+      item.mode = 'reps';
+      const reps = lastLoggedRepsFor(item.exerciseId);
+      item.reps = reps != null ? reps : clamp(item.reps, 1, LIMITS.reps);
+    }
     saveRoutines(); renderRoutineDrawer(); return;
   }
   const unitButton = event.target.closest('[data-unit-toggle]');
   if (unitButton && item) {
-    if (item.unit === 'sec') { item.unit = 'min'; item.reps = Math.max(60, Math.round(((Number(item.reps) || 0) / 60) * 100) / 100); }
-    else { item.unit = 'sec'; item.reps = Math.max(1, Math.round((Number(item.reps) || 0) * 60)); }
+    if (item.unit === 'sec') { item.unit = 'min'; const mins = lastLoggedDurationFor(item.exerciseId); item.reps = mins != null ? Math.max(1, mins) : 1; }
+    else { item.unit = 'sec'; const mins = lastLoggedDurationFor(item.exerciseId); item.reps = mins != null ? Math.max(10, Math.round(mins * 60)) : 10; }
     saveRoutines(); renderRoutineDrawer(); return;
   }
   const weightButton = event.target.closest('[data-weight-toggle]');
