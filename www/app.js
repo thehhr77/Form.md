@@ -2880,7 +2880,7 @@ function syncProgressDraft() {
   document.querySelectorAll('#progressModeSwitch [data-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === draft.mode)));
   const weightToggle = $('#progressWeightToggle');
   if (weightToggle) {
-    weightToggle.hidden = !exercise || timed || exerciseHasWeight(exercise);
+    weightToggle.hidden = !exercise || timed;
     weightToggle.setAttribute('aria-pressed', String(Boolean(draft.showWeight)));
     weightToggle.textContent = draft.showWeight ? 'Remove weight' : 'Add weight';
   }
