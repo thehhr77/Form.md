@@ -37,6 +37,7 @@
   <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></symbol>
   <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
   <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
 </svg>
 
 <div class="app">
@@ -92,6 +93,7 @@
         <div class="modal-visual-card">
           <img id="modalImage" alt="">
           <div class="fallback"><svg class="icon"><use href="#icon-movement"/></svg><span>Media unavailable</span></div>
+          <button type="button" class="modal-expand-btn" id="modalExpandBtn" aria-label="View full size"><svg class="icon"><use href="#icon-expand"/></svg></button>
         </div>
         <div class="modal-media-pill"><svg class="icon"><use href="#icon-pause"/></svg><span>tap to pause</span></div>
       </div>
@@ -145,6 +147,14 @@
       </section>
       <form class="progress-form" id="progressForm" hidden>
         <div class="progress-exercise-fixed feature-field-wide"><span>Exercise</span><strong id="progressExerciseName">Choose an exercise from its details page</strong><small id="progressExerciseMeta">Open an exercise and select Log progress.</small></div>
+        <div class="feature-field feature-field-wide" id="progressModeSwitch" hidden>
+          <span>Log as</span>
+          <div class="mode-switch">
+            <button type="button" data-mode="reps" aria-pressed="true">Sets × Reps</button>
+            <button type="button" data-mode="timed" aria-pressed="false">Intervals × Time</button>
+          </div>
+        </div>
+        <button type="button" class="weight-toggle feature-field-wide" id="progressWeightToggle" hidden aria-pressed="false">Add weight</button>
         <div class="feature-field progress-date-field"><span>Date</span><div class="progress-date-control"><input id="progressDate" type="hidden"><button class="progress-date-button" id="progressDateButton" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="progressDatePicker"><span id="progressDateDisplay"></span><svg class="icon progress-date-icon" aria-hidden="true"><use href="#icon-calendar"/></svg></button></div></div>
         <div class="feature-field" id="progressSetsField"><span id="progressSetsLabel">Sets</span><div class="routine-stepper"><button class="routine-step progress-step" type="button" data-field="sets" data-delta="-1" aria-label="Decrease sets"><svg class="icon"><use href="#icon-minus"/></svg></button><output id="progressSets" aria-live="polite">3</output><button class="routine-step progress-step" type="button" data-field="sets" data-delta="1" aria-label="Increase sets"><svg class="icon"><use href="#icon-plus"/></svg></button></div></div>
         <div class="feature-field feature-field-wide" id="progressSetsDetailField"><div class="set-weight-list" id="progressSetRows"></div></div>
@@ -830,6 +840,10 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="mediaFullscreen" hidden role="dialog" aria-label="Full size exercise animation">
+  <img id="mediaFullscreenImg" alt="Exercise animation full size">
+  <button type="button" class="media-fullscreen-close" id="mediaFullscreenClose" aria-label="Close full size view"><svg class="icon"><use href="#icon-close"/></svg></button>
+</div>
 <script src="app.js" defer></script>
 </body>
 </html>

@@ -51,6 +51,8 @@ function applyAccent(name){
 }
 applyAccent(activeAccent);
 const BODY_WEIGHT='body weight';
+const WEIGHTLESS_EQUIPMENT=new Set(['body weight','assisted','band','bosu ball','hammer','medicine ball','resistance band','roller','rope','skierg machine','stability ball','tire','upper body ergometer','wheel roller']);
+function exerciseHasWeight(exercise){return Boolean(exercise)&&!WEIGHTLESS_EQUIPMENT.has(String(exercise.equipment||'').trim().toLowerCase())}
 const CARDIO_CATEGORY='cardio';
 const CARDIO_WEIGHTED_EQUIPMENT=new Set(['dumbbell','barbell','ez barbell','smith machine','kettlebell','medicine ball','weighted','sled machine','band','resistance band']);
 function isCardioExercise(exercise){return exercise?.category===CARDIO_CATEGORY}
@@ -178,7 +180,7 @@ $('#progressDateGrid').innerHTML=Array.from({length:6},(_,week)=>`<div role="row
 function openProgressDatePicker(returnFocus=document.activeElement){const selected=parseLocalDate($('#progressDate').value||localDateValue());progressDatePickerMonth=new Date(selected.getFullYear(),selected.getMonth(),1,12);progressDatePickerReturnFocus=returnFocus;renderProgressDatePicker();const picker=$('#progressDatePicker');picker.hidden=false;$('#progressDateButton').setAttribute('aria-expanded','true');picker.classList.add('open');picker.querySelector(`[data-date="${$('#progressDate').value}"]`)?.focus({preventScroll:true})}
 function closeProgressDatePicker(restoreFocus=true){const picker=$('#progressDatePicker');if(!picker||picker.hidden)return;picker.classList.remove('open');$('#progressDateButton').setAttribute('aria-expanded','false');picker.hidden=true;if(restoreFocus&&progressDatePickerReturnFocus?.isConnected)progressDatePickerReturnFocus.focus({preventScroll:true});progressDatePickerReturnFocus=null}
 
-function normalizeRoutine(routine){if(!routine||typeof routine!=='object'||!String(routine.id??''))return null;const seen=new Set();return{id:String(routine.id),name:String(routine.name??'Routine').trim().slice(0,LIMITS.routineName)||'Routine',liked:Boolean(routine.liked),items:(Array.isArray(routine.items)?routine.items:[]).filter(item=>item&&VALID_EXERCISE_IDS.has(String(item.exerciseId))&&!seen.has(String(item.exerciseId))&&seen.add(String(item.exerciseId))).map(item=>({exerciseId:String(item.exerciseId),sets:clamp(item.sets,1,LIMITS.sets),reps:clamp(item.reps,1,LIMITS.reps)}))}}
+function normalizeRoutine(routine){if(!routine||typeof routine!=='object'||!String(routine.id??''))return null;const seen=new Set();return{id:String(routine.id),name:String(routine.name??'Routine').trim().slice(0,LIMITS.routineName)||'Routine',liked:Boolean(routine.liked),items:(Array.isArray(routine.items)?routine.items:[]).filter(item=>item&&VALID_EXERCISE_IDS.has(String(item.exerciseId))&&!seen.has(String(item.exerciseId))&&seen.add(String(item.exerciseId))).map(item=>({exerciseId:String(item.exerciseId),sets:clamp(item.sets,1,LIMITS.sets),reps:clamp(item.reps,1,item.mode==='timed'?LIMITS.duration:LIMITS.reps),...(item.mode==='timed'?{mode:'timed'}:item.mode==='reps'?{mode:'reps'}:{}),...(item.weighted?{weighted:true}:{})}))}}
 function sanitizeSetWeights(value){if(!Array.isArray(value))return null;const list=value.map(entry=>entry===''||entry==null?0:Math.min(LIMITS.weight,Math.max(0,Number(entry)||0))).slice(0,LIMITS.sets);return list.length?list:null}
 function sanitizeSetReps(value,fallbackLength){if(!Array.isArray(value))return null;const list=value.map(entry=>clamp(Number(entry)||1,1,LIMITS.reps)).slice(0,fallbackLength||LIMITS.sets);return list.length?list:null}
 function setRepsFromUniform(reps,count){const value=clamp(Number(reps)||1,1,LIMITS.reps);return count>0?Array.from({length:count},()=>value):null}
@@ -261,7 +263,7 @@ const state={
   progressPreferences:storedProgressPrefs,
   showWorkoutReminder:readStorage(STORAGE_KEYS.workoutReminder,true)!==false,
   restPrefs:storedRestPrefs,
-  progress:{logs:loadProgressLogs(),activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:''}},
+  progress:{logs:loadProgressLogs(),activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:'',mode:'reps',showWeight:false}},
   dashboard:{weekOffset:0,monthOffset:0,selectedDate:null,scope:storedProgressPrefs.defaultView},
   overlay:{active:null,returnFocus:{}},
   mobileTab:'workout',
@@ -389,12 +391,14 @@ function parseRoutinesMd(text) {
       if (routine) routine.liked = true;
       continue;
     }
-    const exMatch = line.replace(/^#/, '').trim().match(/^(\d{4})\s+(\d+)\s*\*\s*(\d+)$/);
+    const exMatch = line.replace(/^#/, '').trim().match(/^(\d{4})\s+(\d+)\s*\*\s*(\d+)(?:\s+(\S.*))?$/);
     if (exMatch && routine) {
       const id = String(exMatch[1]);
       if (!VALID_EXERCISE_IDS.has(id) || seen.has(id)) continue;
       seen.add(id);
-      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 1, LIMITS.reps, DEFAULTS.reps) });
+      const mode = /\btimed\b/i.test(exMatch[4] || '') ? 'timed' : (/\breps\b/i.test(exMatch[4] || '') ? 'reps' : undefined);
+      const weighted = /\bweighted\b/i.test(exMatch[4] || '') ? true : undefined;
+      routine.items.push({ exerciseId: id, sets: vClampNum(exMatch[2], 1, LIMITS.sets, DEFAULTS.sets), reps: vClampNum(exMatch[3], 1, mode === 'timed' ? LIMITS.duration : LIMITS.reps, DEFAULTS.reps), ...(mode ? { mode } : {}), ...(weighted ? { weighted: true } : {}) });
       continue;
     }
   }
@@ -594,7 +598,7 @@ function routinesToMd(routines) {
     lines.push(`## ${r.name}`);
     if (r.liked) lines.push('- liked');
     for (const item of r.items) {
-      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}`);
+      lines.push(`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ' timed' : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}`);
     }
     lines.push('');
   }
@@ -1798,7 +1802,7 @@ function saveRoutines(){
 }
 function routineToText(routine=currentRoutine()){
   if(!routine)return'';
-  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}`)].join('\n');
+  return[routine.name,...routine.items.map(item=>`${item.exerciseId} ${item.sets} * ${item.reps}${item.mode === 'timed' ? ' timed' : item.mode === 'reps' ? ' reps' : ''}${item.weighted ? ' weighted' : ''}`)].join('\n');
 }
 function routinesToText(){return state.routines.map(routineToText).filter(Boolean).join('\n\n')}
 function showPastePanel(panelId,textId,text='',{toggleId=null,alwaysSet=false}={}){
@@ -1858,14 +1862,16 @@ function parseRoutineText(text){
   const stamp=Date.now(),routines=[];
   let routine=null,seen=null;
   for(const line of lines){
-    const match=line.match(/^(\S+)\s+(\d+)\s*\*\s*(\d+)$/);
+    const match=line.match(/^(\S+)\s+(\d+)\s*\*\s*(\d+)(.*)$/);
     if(match){
       if(!routine)throw new Error('Missing name');
       const exerciseId=match[1];
       if(!VALID_EXERCISE_IDS.has(exerciseId))throw new Error('Unknown exercise');
       if(seen.has(exerciseId))continue;
       seen.add(exerciseId);
-      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],1,LIMITS.reps)});
+      const mode=/\btimed\b/i.test(match[4])?'timed':(/\breps\b/i.test(match[4])?'reps':undefined);
+      const weighted=/\bweighted\b/i.test(match[4])?true:undefined;
+      routine.items.push({exerciseId,sets:clamp(match[2],1,LIMITS.sets),reps:clamp(match[3],1,mode==='timed'?LIMITS.duration:LIMITS.reps),...(mode?{mode}:{}),...(weighted?{weighted:true}:{})});
       continue;
     }
     if(line.includes('*'))throw new Error('Invalid');
@@ -1978,7 +1984,9 @@ function renderRoutineDrawer(){
       itemsContainer.innerHTML = items.map((item,index)=>{
         const exercise=getExercise(item.exerciseId);
         if(!exercise)return'';
-        return`<div class="routine-item" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields"><div class="routine-field"><label>Sets</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease sets for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="Sets for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase sets for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field"><label>Reps</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" aria-label="Decrease reps for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${item.reps}" readonly tabindex="-1" aria-label="Reps for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" aria-label="Increase reps for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
+        const timed=routineItemMode(item,exercise)==='timed';
+        const modeRow=`<div class="routine-mode-row"><div class="mode-switch mode-switch--compact"><button type="button" data-mode="reps" aria-pressed="${timed?'false':'true'}">Reps</button><button type="button" data-mode="timed" aria-pressed="${timed?'true':'false'}">Timed</button></div>${exerciseHasWeight(exercise)?'':`<button type="button" class="weight-toggle" data-weight-toggle aria-pressed="${item.weighted?'true':'false'}">${item.weighted?'Weight on':'Add weight'}</button>`}</div>`;
+        return`<div class="routine-item${timed?' item-timed':''}" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?'Seconds per interval':'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" aria-label="Decrease ${timed?'seconds':'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${item.reps}" readonly tabindex="-1" aria-label="${timed?'Seconds per interval':'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" aria-label="Increase ${timed?'seconds':'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
       }).join('');
     }
   } else {
@@ -2059,21 +2067,24 @@ function seedAwSets(routine){
   routine.items.forEach(item=>{
     const exercise=getExercise(item.exerciseId);
     if(!exercise)return;
-    if(isTimedCardioExercise(exercise)){
+    const timed=routineItemMode(item,exercise)==='timed';
+    if(timed){
       const latest=latestLogFor(item.exerciseId);
       const durations=Array.isArray(latest?.setDurations)&&latest.setDurations.length?latest.setDurations:(sanitizeDurationValue(latest?.duration)?[sanitizeDurationValue(latest.duration)]:[]);
       const distances=Array.isArray(latest?.setDistances)&&latest.setDistances.length?latest.setDistances:(sanitizeDistanceValue(latest?.distance)?[sanitizeDistanceValue(latest.distance)]:[]);
-      const lastDuration=durations.length?clamp(Math.round(Number(durations[durations.length-1]))||0,0,LIMITS.duration):0;
+      const lastDuration=durations.length?clamp(Math.round(Number(durations[durations.length-1]))||0,0,LIMITS.duration):clamp(item.reps,0,LIMITS.duration);
       const lastDistance=Math.round(clamp(Number(distances[distances.length-1])||0,0,LIMITS.distance)*10)/10;
       sets[item.exerciseId]=Array.from({length:clamp(item.sets,1,LIMITS.sets)},()=>({duration:lastDuration,distance:lastDistance,done:false}));
       return;
     }
     const lastWeight=latestLogFor(item.exerciseId)?.weight||0;
-    sets[item.exerciseId]=Array.from({length:item.sets},()=>({reps:item.reps,weight:exerciseIsBodyWeight(exercise)?null:lastWeight,done:false}));
+    sets[item.exerciseId]=Array.from({length:item.sets},()=>({reps:item.reps,weight:routineItemWeighted(item,exercise)?lastWeight:null,done:false}));
   });
   return sets;
 }
 function exerciseIsBodyWeight(exercise){return exercise?.equipment===BODY_WEIGHT}
+function routineItemMode(item,exercise){return item?.mode==='timed'||item?.mode==='reps'?item.mode:(isTimedCardioExercise(exercise)?'timed':'reps')}
+function routineItemWeighted(item,exercise){if(item?.weighted)return true;if(item?.mode==='timed'||item?.mode==='reps')return false;return exerciseHasWeight(exercise)}
 function awCounts(){
   const rows=awRows().filter(({exercise})=>!awSkipped(exercise.id)),session=state.activeWorkout;
   return{total:rows.length,done:rows.filter(({exercise})=>awIsComplete(exercise.id)).length};
@@ -2082,7 +2093,7 @@ function syncAwLog(exercise,item){
   const session=state.activeWorkout;if(!session)return;
   const token=String(session.startedAt);
   state.progress.logs=state.progress.logs.filter(log=>!(log.sessionId===token&&log.exerciseId===exercise.id));
-  if(isTimedCardioExercise(exercise)){
+  if(routineItemMode(item,exercise)==='timed'){
     const checked=awChecked(exercise.id).slice(0,LIMITS.sets);
     if(checked.length>0){
       const setDurations=checked.map(row=>clamp(Math.round(Number(row.duration)||0),0,LIMITS.duration));
@@ -2167,7 +2178,8 @@ async function handleAwAction(action,exerciseId,delta,rowIndex){
   if(action==='open')return openModal(exercise);
   if(awSkipped(exerciseId))return;
   let changed=false,restTrigger=false;
-  const timed=isTimedCardioExercise(exercise);
+  const timed=routineItemMode(item,exercise)==='timed';
+  const showWeight=routineItemWeighted(item,exercise);
   const rows=session.sets[exerciseId]||(session.sets[exerciseId]=[]);
   const index=Number(rowIndex);
   if(action==='check'&&rows[index]){
@@ -2176,7 +2188,7 @@ async function handleAwAction(action,exerciseId,delta,rowIndex){
   }else if(action==='rep-inc'||action==='rep-dec'){    if(timed||!rows[index])return;
     rows[index].reps=clamp(rows[index].reps+(action==='rep-inc'?1:-1),1,LIMITS.reps);changed=true;
   }else if(action==='wt-inc'||action==='wt-dec'){
-    if(timed||!rows[index])return;
+    if(timed||!showWeight||!rows[index])return;
     const current=rows[index].weight==null?0:rows[index].weight;
     rows[index].weight=Math.round(clamp(current+Number(delta||0),0,LIMITS.weight)*10)/10;changed=true;
   }else if(action==='dur-inc'||action==='dur-dec'){
@@ -2189,7 +2201,7 @@ async function handleAwAction(action,exerciseId,delta,rowIndex){
     if(rows.length>=LIMITS.sets)return toast(timed?'Interval limit reached':'Set limit reached');
     const template=rows[rows.length-1];
     if(timed)rows.push({duration:template?template.duration:0,distance:template?template.distance:0,done:false});
-    else rows.push({reps:template?template.reps:item.reps,weight:template?template.weight:(exerciseIsBodyWeight(exercise)?null:0),done:false});
+    else rows.push({reps:template?template.reps:item.reps,weight:template?template.weight:(showWeight?0:null),done:false});
     changed=true;
   }else if(action==='remove-rep'){
     if(!rows.length)return;
@@ -2222,13 +2234,13 @@ function renderActiveWorkout(){
   const rowHtml=rowStates.map(row=>{
     const{item,exercise,skipped,complete}=row;
     const sets=awSets(exercise.id);
-    const timed=isTimedCardioExercise(exercise);
+    const timed=routineItemMode(item,exercise)==='timed';
+    const showWeight=routineItemWeighted(item,exercise);
     const isActive=row===activeRow;
-    const bodyWeight=exercise.equipment===BODY_WEIGHT;
     const mediaSrc=isActive?esc(exercise.gif_url||exercise.image):esc(exercise.image);
     const setsHead=timed
       ?`<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Duration</span><span class="aw-h-label">Distance</span><span class="aw-h-check"></span></div>`
-      :`<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Reps</span>${bodyWeight?'':'<span class="aw-h-label">Weight</span>'}<span class="aw-h-check"></span></div>`;
+      :`<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Reps</span>${showWeight?'<span class="aw-h-label">Weight</span>':''}<span class="aw-h-check"></span></div>`;
     const setRows=sets.map((set,index)=>`
       <div class="aw-set-row${set.done?' checked':''}">
         <span class="aw-num">${index+1}</span>
@@ -2247,18 +2259,18 @@ function renderActiveWorkout(){
           <output aria-live="polite">${clamp(set.reps,1,LIMITS.reps)}</output>
           <button class="routine-step" type="button" data-aw-action="rep-inc" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="Increase reps"${skipped?' disabled':''}>${icon('plus')}</button>
         </div>
-        ${bodyWeight?'':`<div class="routine-stepper" role="group" aria-label="Weight for set ${index+1} of ${esc(exercise.name)}">
+        ${showWeight?`<div class="routine-stepper" role="group" aria-label="Weight for set ${index+1} of ${esc(exercise.name)}">
           <button class="routine-step" type="button" data-aw-action="wt-dec" data-exercise="${exercise.id}" data-aw-index="${index}" data-delta="-2.5" aria-label="Decrease weight"${skipped?' disabled':''}>${icon('minus')}</button>
           <output aria-live="polite">${Math.round((set.weight||0)*10)/10} kg</output>
           <button class="routine-step" type="button" data-aw-action="wt-inc" data-exercise="${exercise.id}" data-aw-index="${index}" data-delta="2.5" aria-label="Increase weight"${skipped?' disabled':''}>${icon('plus')}</button>
-        </div>`}`}
+        </div>`:''}`}
         <button type="button" class="aw-check${set.done?' on':''}" data-aw-action="check" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="${timed?`Interval ${index+1}`:`Set ${index+1}`} ${set.done?'completed':'not completed'}"${skipped?' disabled':''}>${icon('check')}</button>
       </div>`).join('');
     return `<div class="aw-row${complete?' done':''}${skipped?' skipped':''}${isActive?'':' collapsed'}" data-exercise="${exercise.id}">
       <div class="aw-row-top">
         <div class="aw-main">
           <button type="button" class="aw-media" data-aw-action="open" data-exercise="${exercise.id}" aria-label="Open ${esc(exercise.name)} details"><img src="${mediaSrc}" alt="" loading="lazy" data-aw-media data-aw-exercise="${exercise.id}"></button>
-          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
+          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${item.reps}s each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
         </div>
         <div class="aw-row-badges">${complete&&!skipped?`<span class="aw-done-badge">${icon('check')} Done</span>`:''}${skipped?`<span class="aw-skipped-badge">Skipped</span>`:''}</div>
       </div>
@@ -2446,7 +2458,8 @@ function openModal(exercise, returnFocus = document.activeElement) {
   resetModalScrollPosition();
 }
 
-$('.modal-visual')?.addEventListener('click', () => {
+$('.modal-visual')?.addEventListener('click', (event) => {
+  if (event.target.closest('#modalExpandBtn')) return;
   const exercise = state.activeExercise;
   const image = $('#modalImage');
   if (!exercise || !image) return;
@@ -2455,7 +2468,27 @@ $('.modal-visual')?.addEventListener('click', () => {
   syncMediaPill(state.activeGifPaused);
 });
 
+function openMediaFullscreen() {
+  const exercise = state.activeExercise;
+  const image = $('#modalImage');
+  const overlay = document.getElementById('mediaFullscreen');
+  const fullImage = document.getElementById('mediaFullscreenImg');
+  if (!exercise || !image || !overlay || !fullImage) return;
+  fullImage.src = image.src;
+  overlay.hidden = false;
+}
+function closeMediaFullscreen() {
+  const overlay = document.getElementById('mediaFullscreen');
+  if (!overlay) return;
+  overlay.hidden = true;
+}
+$('#modalExpandBtn')?.addEventListener('click', openMediaFullscreen);
+$('#mediaFullscreenClose')?.addEventListener('click', closeMediaFullscreen);
+document.getElementById('mediaFullscreen')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) closeMediaFullscreen(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !document.getElementById('mediaFullscreen')?.hidden) closeMediaFullscreen(); });
+
 function closeModal(restoreFocus = true) {
+  closeMediaFullscreen();
   const modal = $('#modalBackdrop .modal');
   modal.style.transform = 'translateY(100%)';
   setTimeout(() => {
@@ -2468,7 +2501,10 @@ function closeModal(restoreFocus = true) {
 function resetProgressDraft() {
   const exercise = getExercise(state.progress.activeExerciseId);
   const latest = latestLogFor(state.progress.activeExerciseId);
-  if (isTimedCardioExercise(exercise)) {
+  const draft = state.progress.draft;
+  draft.mode = latest ? (isTimedCardioLog(latest) ? 'timed' : 'reps') : (isTimedCardioExercise(exercise) ? 'timed' : 'reps');
+  draft.showWeight = exerciseHasWeight(exercise);
+  if (draft.mode === 'timed') {
     const timed = isTimedCardioLog(latest) ? timedLogTotals(latest) : null;
     const seedIntervals = clamp(timed?.intervals || 1, 1, LIMITS.sets);
     const latestDurations = Array.isArray(latest?.setDurations) ? latest.setDurations : [];
@@ -2832,7 +2868,7 @@ $('#chkClearAll')?.addEventListener('change', (e) => {
 function syncProgressDraft() {
   const exercise = getExercise(state.progress.activeExerciseId);
   const draft = state.progress.draft;
-  const timed = isTimedCardioExercise(exercise);
+  const timed = draft.mode === 'timed';
   if (timed) {
     draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration), DEFAULTS.duration);
     draft.setDistances = fitList(draft.setDistances, draft.sets, (value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10, DEFAULTS.distance);
@@ -2840,6 +2876,13 @@ function syncProgressDraft() {
     draft.setWeights = fitList(draft.setWeights, draft.sets, (value) => value, DEFAULTS.weight);
     draft.setReps = fitList(draft.setReps, draft.sets, (value) => clamp(Math.round(Number(value)) || 1, 1, LIMITS.reps), DEFAULTS.reps);
     draft.reps = draft.setReps[0] ?? DEFAULTS.reps;
+  }
+  document.querySelectorAll('#progressModeSwitch [data-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === draft.mode)));
+  const weightToggle = $('#progressWeightToggle');
+  if (weightToggle) {
+    weightToggle.hidden = !exercise || timed || exerciseHasWeight(exercise);
+    weightToggle.setAttribute('aria-pressed', String(Boolean(draft.showWeight)));
+    weightToggle.textContent = draft.showWeight ? 'Remove weight' : 'Add weight';
   }
   $('#progressSets').textContent = draft.sets;
   $('#progressNotes').value = draft.notes;
@@ -2857,14 +2900,14 @@ function syncProgressDraft() {
           <button class="routine-step progress-step" type="button" data-field="duration" data-set-index="${index}" data-delta="5" aria-label="Increase duration for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('plus')}</button>
         </div>
         <div class="routine-stepper" role="group" aria-label="Distance for interval ${index + 1}">
-          <button class="routine-step progress-step" type="button" data-field="distance" data-set-index="${index}" data-delta="-0.5" aria-label="Decrease distance for interval ${index + 1}">${icon('minus')}</button>
+          <button class="routine-step progress-step" type="button" data-field="distance" data-set-index="${index}" data-delta="-0.5" aria-label="Decrease distance for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('minus')}</button>
           <output aria-live="polite">${formatWeightValue(draft.setDistances[index] ?? 0)} km</output>
-          <button class="routine-step progress-step" type="button" data-field="distance" data-set-index="${index}" data-delta="0.5" aria-label="Increase distance for interval ${index + 1}">${icon('plus')}</button>
+          <button class="routine-step progress-step" type="button" data-field="distance" data-set-index="${index}" data-delta="0.5" aria-label="Increase distance for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('plus')}</button>
         </div>
       </div>`).join('');
     return;
   }
-  const showWeight = enabled && exercise.equipment !== BODY_WEIGHT;
+  const showWeight = enabled && draft.showWeight;
   const head = `<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Reps</span>${showWeight ? '<span class="aw-h-label">Weight</span>' : ''}</div>`;
   rowsContainer.innerHTML = head + draft.setReps.map((repsValue, index) => `
     <div class="aw-set-row">
@@ -2883,7 +2926,8 @@ function syncProgressDraft() {
 }
 function renderFixedExercise() {
   const exercise = getExercise(state.progress.activeExerciseId);
-  const timed = isTimedCardioExercise(exercise);
+  const draft = state.progress.draft;
+  const timed = draft.mode === 'timed';
   $('.progress-exercise-fixed').classList.toggle('empty', !exercise);
   $('#progressExerciseName').textContent = exercise ? title(exercise.name) : 'Choose an exercise from its details page';
   $('#progressExerciseMeta').textContent = exercise ? `${title(exercise.target)} · ${title(exercise.equipment)} · #${exercise.id}` : 'Open an exercise and select Log progress.';
@@ -2892,6 +2936,8 @@ function renderFixedExercise() {
   document.querySelectorAll('.progress-step').forEach((button) => {
     button.disabled = !exercise;
   });
+  const modeSwitch = $('#progressModeSwitch');
+  if (modeSwitch) modeSwitch.hidden = !exercise;
   $('#progressSetsLabel').textContent = timed ? 'Intervals' : 'Sets';
   const setsMinus = $('#progressSetsField [data-delta="-1"]'), setsPlus = $('#progressSetsField [data-delta="1"]');
   if (setsMinus) setsMinus.setAttribute('aria-label', timed ? 'Decrease intervals' : 'Decrease sets');
@@ -3271,7 +3317,7 @@ function saveProgressLog(event) {
     createdAt: timestamp,
   };
   let log;
-  if (isTimedCardioExercise(exercise)) {
+  if (draft.mode === 'timed') {
     const intervals = clamp(draft.sets, 1, LIMITS.sets);
     const setDurations = (Array.isArray(draft.setDurations) ? draft.setDurations : []).slice(0, intervals).map((value) => clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration));
     const setDistances = (Array.isArray(draft.setDistances) ? draft.setDistances : []).slice(0, intervals).map((value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10);
@@ -3282,7 +3328,7 @@ function saveProgressLog(event) {
     if (!totalDuration && !totalDistance) return toast('Add a duration or a distance');
     log = { ...base, intervals, weight: null, ...(totalDuration ? { setDurations } : {}), ...(totalDistance ? { setDistances } : {}) };
   } else {
-    const isBodyWeight = exercise.equipment === BODY_WEIGHT;
+    const isBodyWeight = !draft.showWeight;
     const setWeights = (Array.isArray(draft.setWeights) ? draft.setWeights : []).slice(0, draft.sets).map((value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.weight) * 10) / 10);
     const setReps = (Array.isArray(draft.setReps) ? draft.setReps : []).slice(0, draft.sets).map((value) => clamp(Math.round(Number(value)) || 1, 1, LIMITS.reps));
     const tracked = setWeights.filter((value) => value > 0);
@@ -3781,11 +3827,24 @@ $('#routineItems').addEventListener('click', (event) => {
   const routine = currentRoutine();
   if (!row || !routine) return;
   const item = routine.items.find((candidate) => candidate.exerciseId === row.dataset.exerciseId);
+  const modeButton = event.target.closest('[data-mode]');
+  if (modeButton && item) {
+    item.mode = modeButton.dataset.mode === 'timed' ? 'timed' : 'reps';
+    if (item.mode !== 'timed' && item.reps > LIMITS.reps) item.reps = LIMITS.reps;
+    saveRoutines(); renderRoutineDrawer(); return;
+  }
+  const weightButton = event.target.closest('[data-weight-toggle]');
+  if (weightButton && item) {
+    if (item.weighted) delete item.weighted;
+    else item.weighted = true;
+    saveRoutines(); renderRoutineDrawer(); return;
+  }
   const step = event.target.closest('.routine-step');
   if (step && item) {
     const field = step.dataset.field;
     const delta = step.classList.contains('routine-increase') ? 1 : -1;
-    item[field] = clamp(item[field] + delta, 1, field === 'sets' ? LIMITS.sets : LIMITS.reps);
+    const limit = field === 'sets' ? LIMITS.sets : (item.mode === 'timed' ? LIMITS.duration : LIMITS.reps);
+    item[field] = clamp(item[field] + delta, 1, limit);
     saveRoutines(); renderRoutineDrawer(); return;
   }
   const move = event.target.closest('.routine-up, .routine-down');
@@ -3928,8 +3987,21 @@ $('#progressClearDataBtn').addEventListener('click', () => {
 });
 $('#progressBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeProgress(); });
 $('#progressForm').addEventListener('submit', saveProgressLog);
+$('#progressWeightToggle').addEventListener('click', () => {
+  state.progress.draft.showWeight = !state.progress.draft.showWeight;
+  syncProgressDraft();
+});
 $('#progressNotes').addEventListener('input', (event) => { state.progress.draft.notes = event.target.value; });
 $('#progressForm').addEventListener('click', (event) => {
+  const modeButton = event.target.closest('#progressModeSwitch [data-mode]');
+  if (modeButton) {
+    if (!state.progress.activeExerciseId) return;
+    if (state.progress.draft.mode !== modeButton.dataset.mode) {
+      state.progress.draft.mode = modeButton.dataset.mode;
+      syncProgressDraft();
+    }
+    return;
+  }
   const button = event.target.closest('.progress-step');
   if (!button || button.disabled) return;
   const field = button.dataset.field;
@@ -3943,9 +4015,9 @@ $('#progressForm').addEventListener('click', (event) => {
     return;
   }
   if (button.dataset.setIndex == null || !['weight', 'reps', 'duration', 'distance'].includes(field)) return;
-  const timed = isTimedCardioExercise(exercise);
+  const timed = state.progress.draft.mode === 'timed';
   if (timed && (field === 'weight' || field === 'reps')) return;
-  if (!timed && field === 'weight' && exercise.equipment === BODY_WEIGHT) return;
+  if (!timed && field === 'weight' && !state.progress.draft.showWeight) return;
   const index = Number(button.dataset.setIndex);
   const list = timed ? (field === 'duration' ? state.progress.draft.setDurations : state.progress.draft.setDistances)
     : (field === 'weight' ? state.progress.draft.setWeights : state.progress.draft.setReps);
