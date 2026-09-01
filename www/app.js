@@ -263,7 +263,7 @@ const state={
   progressPreferences:storedProgressPrefs,
   showWorkoutReminder:readStorage(STORAGE_KEYS.workoutReminder,true)!==false,
   restPrefs:storedRestPrefs,
-  progress:{logs:loadProgressLogs(),activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:'',mode:'reps',showWeight:false}},
+  progress:{logs:loadProgressLogs(),activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:'',mode:'reps',showWeight:false,durationUnit:'min'}},
   dashboard:{weekOffset:0,monthOffset:0,selectedDate:null,scope:storedProgressPrefs.defaultView},
   overlay:{active:null,returnFocus:{}},
   mobileTab:'workout',
@@ -2505,12 +2505,15 @@ function resetProgressDraft() {
   draft.mode = latest ? (isTimedCardioLog(latest) ? 'timed' : 'reps') : (isTimedCardioExercise(exercise) ? 'timed' : 'reps');
   draft.showWeight = exerciseHasWeight(exercise);
   if (draft.mode === 'timed') {
+    draft.durationUnit = isTimedCardioExercise(exercise) ? 'min' : 'sec';
     const timed = isTimedCardioLog(latest) ? timedLogTotals(latest) : null;
     const seedIntervals = clamp(timed?.intervals || 1, 1, LIMITS.sets);
     const latestDurations = Array.isArray(latest?.setDurations) ? latest.setDurations : [];
     const latestDistances = Array.isArray(latest?.setDistances) ? latest.setDistances : [];
-    const seedDuration = clamp(latestDurations.length ? latestDurations[latestDurations.length - 1] : (sanitizeDurationValue(latest?.duration) ?? DEFAULTS.duration), 0, LIMITS.duration);
-    const seedDistance = Math.round(clamp(latestDistances.length ? latestDistances[latestDistances.length - 1] : (sanitizeDistanceValue(latest?.distance) ?? DEFAULTS.distance), 0, LIMITS.distance) * 10) / 10;
+    const hasTimedHistory = Boolean(timed?.intervals || latestDurations.length);
+    const seedDurationMinutes = clamp(latestDurations.length ? latestDurations[latestDurations.length - 1] : (sanitizeDurationValue(latest?.duration) ?? DEFAULTS.duration), 0, LIMITS.duration);
+    const seedDuration = draft.durationUnit === 'sec' ? (hasTimedHistory ? Math.round(seedDurationMinutes * 60) : 30) : seedDurationMinutes;
+    const seedDistance = Math.round(clamp(latestDistances.length ? latestDistances[latestDurations.length - 1] : (sanitizeDistanceValue(latest?.distance) ?? DEFAULTS.distance), 0, LIMITS.distance) * 10) / 10;
     Object.assign(state.progress.draft, { sets: seedIntervals, setDurations: Array.from({ length: seedIntervals }, () => seedDuration), setDistances: Array.from({ length: seedIntervals }, () => seedDistance), notes: '' });
     $('#progressNotes').value = '';
     return;
@@ -2869,8 +2872,12 @@ function syncProgressDraft() {
   const exercise = getExercise(state.progress.activeExerciseId);
   const draft = state.progress.draft;
   const timed = draft.mode === 'timed';
+  const sec = timed && draft.durationUnit === 'sec';
+  const durationMax = sec ? LIMITS.duration * 60 : LIMITS.duration;
+  const durationStep = sec ? 15 : 5;
+  const durationFallback = sec ? 30 : DEFAULTS.duration;
   if (timed) {
-    draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration), DEFAULTS.duration);
+    draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round(Number(value)) || 0, 0, durationMax), durationFallback);
     draft.setDistances = fitList(draft.setDistances, draft.sets, (value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10, DEFAULTS.distance);
   } else {
     draft.setWeights = fitList(draft.setWeights, draft.sets, (value) => value, DEFAULTS.weight);
@@ -2880,9 +2887,14 @@ function syncProgressDraft() {
   document.querySelectorAll('#progressModeSwitch [data-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === draft.mode)));
   const weightToggle = $('#progressWeightToggle');
   if (weightToggle) {
-    weightToggle.hidden = !exercise || timed;
-    weightToggle.setAttribute('aria-pressed', String(Boolean(draft.showWeight)));
-    weightToggle.textContent = draft.showWeight ? 'Remove weight' : 'Add weight';
+    weightToggle.hidden = !exercise;
+    if (timed) {
+      weightToggle.textContent = 'Mins';
+      weightToggle.setAttribute('aria-pressed', String(!sec));
+    } else {
+      weightToggle.textContent = 'Weight';
+      weightToggle.setAttribute('aria-pressed', String(Boolean(draft.showWeight)));
+    }
   }
   $('#progressSets').textContent = draft.sets;
   $('#progressNotes').value = draft.notes;
@@ -2890,14 +2902,15 @@ function syncProgressDraft() {
   const rowsContainer = $('#progressSetRows');
   if (!rowsContainer) return;
   if (timed) {
+    const unitLabel = sec ? 'sec' : 'min';
     const head = `<div class="aw-sets-head"><span class="aw-h-num"></span><span class="aw-h-label">Duration</span><span class="aw-h-label">Distance</span></div>`;
     rowsContainer.innerHTML = head + draft.setDurations.map((durationValue, index) => `
       <div class="aw-set-row">
         <span class="aw-num">${index + 1}</span>
         <div class="routine-stepper" role="group" aria-label="Duration for interval ${index + 1}">
-          <button class="routine-step progress-step" type="button" data-field="duration" data-set-index="${index}" data-delta="-5" aria-label="Decrease duration for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('minus')}</button>
-          <output aria-live="polite">${draft.setDurations[index]} min</output>
-          <button class="routine-step progress-step" type="button" data-field="duration" data-set-index="${index}" data-delta="5" aria-label="Increase duration for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('plus')}</button>
+          <button class="routine-step progress-step" type="button" data-field="duration" data-set-index="${index}" data-delta="-${durationStep}" aria-label="Decrease duration in ${unitLabel} for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('minus')}</button>
+          <output aria-live="polite">${draft.setDurations[index]} ${unitLabel}</output>
+          <button class="routine-step progress-step" type="button" data-field="duration" data-set-index="${index}" data-delta="${durationStep}" aria-label="Increase duration in ${unitLabel} for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('plus')}</button>
         </div>
         <div class="routine-stepper" role="group" aria-label="Distance for interval ${index + 1}">
           <button class="routine-step progress-step" type="button" data-field="distance" data-set-index="${index}" data-delta="-0.5" aria-label="Decrease distance for interval ${index + 1}"${enabled ? '' : ' disabled'}>${icon('minus')}</button>
@@ -3318,8 +3331,10 @@ function saveProgressLog(event) {
   };
   let log;
   if (draft.mode === 'timed') {
+    const sec = draft.durationUnit === 'sec';
+    const toMinutes = (value) => sec ? Math.round(((Number(value) || 0) / 60) * 100) / 100 : clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration);
     const intervals = clamp(draft.sets, 1, LIMITS.sets);
-    const setDurations = (Array.isArray(draft.setDurations) ? draft.setDurations : []).slice(0, intervals).map((value) => clamp(Math.round(Number(value)) || 0, 0, LIMITS.duration));
+    const setDurations = (Array.isArray(draft.setDurations) ? draft.setDurations : []).slice(0, intervals).map((value) => clamp(toMinutes(value), 0, LIMITS.duration));
     const setDistances = (Array.isArray(draft.setDistances) ? draft.setDistances : []).slice(0, intervals).map((value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10);
     while (setDurations.length < intervals) setDurations.push(0);
     while (setDistances.length < intervals) setDistances.push(0);
@@ -3989,7 +4004,14 @@ $('#progressBackdrop').addEventListener('click', (event) => { if (event.target =
 $('#progressForm').addEventListener('submit', saveProgressLog);
 $('#progressCancel').addEventListener('click', () => closeProgress());
 $('#progressWeightToggle').addEventListener('click', () => {
-  state.progress.draft.showWeight = !state.progress.draft.showWeight;
+  const draft = state.progress.draft;
+  if (draft.mode === 'timed') {
+    const toSec = draft.durationUnit !== 'sec';
+    draft.setDurations = draft.setDurations.map((value) => toSec ? Math.round((Number(value) || 0) * 60) : Math.round(((Number(value) || 0) / 60) * 100) / 100);
+    draft.durationUnit = toSec ? 'sec' : 'min';
+  } else {
+    draft.showWeight = !draft.showWeight;
+  }
   syncProgressDraft();
 });
 $('#progressNotes').addEventListener('input', (event) => { state.progress.draft.notes = event.target.value; });
@@ -3999,6 +4021,7 @@ $('#progressForm').addEventListener('click', (event) => {
     if (!state.progress.activeExerciseId) return;
     if (state.progress.draft.mode !== modeButton.dataset.mode) {
       state.progress.draft.mode = modeButton.dataset.mode;
+      if (modeButton.dataset.mode === 'timed') state.progress.draft.durationUnit = isTimedCardioExercise(getExercise(state.progress.activeExerciseId)) ? 'min' : 'sec';
       syncProgressDraft();
     }
     return;
@@ -4024,7 +4047,7 @@ $('#progressForm').addEventListener('click', (event) => {
     : (field === 'weight' ? state.progress.draft.setWeights : state.progress.draft.setReps);
   if (!Array.isArray(list) || !(index in list)) return;
   if (field === 'weight' || field === 'distance') list[index] = Math.round(clamp((Number(list[index]) || 0) + delta, 0, LIMITS[field]) * 10) / 10;
-  else if (field === 'duration') list[index] = clamp(Math.round((Number(list[index]) || 0) + delta), 0, LIMITS.duration);
+  else if (field === 'duration') { const sec = state.progress.draft.durationUnit === 'sec'; list[index] = clamp(Math.round((Number(list[index]) || 0) + delta), 0, sec ? LIMITS.duration * 60 : LIMITS.duration); }
    else list[index] = clamp(Math.round((Number(list[index]) || 0) + delta), 1, LIMITS.reps);
   syncProgressDraft();
 });
