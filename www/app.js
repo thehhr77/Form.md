@@ -2468,6 +2468,7 @@ function openModal(exercise, returnFocus = document.activeElement) {
   const image = $('#modalImage');
   const fallback = image.nextElementSibling;
   document.querySelector('.modal-visual')?.classList.remove('media-tall');
+  document.getElementById('modalExpandBtn')?.querySelector('use')?.setAttribute('href', '#icon-expand');
   image.style.display = 'block';
   fallback.style.display = 'none';
   image.src = exercise.gif_url || exercise.image;
@@ -2499,11 +2500,15 @@ $('#modalExpandBtn')?.addEventListener('click', () => {
   if (!visual) return;
   const expanded = visual.classList.toggle('media-tall');
   const button = document.getElementById('modalExpandBtn');
-  if (button) button.setAttribute('aria-label', expanded ? 'Restore size' : 'View full size');
+  if (button) {
+    button.setAttribute('aria-label', expanded ? 'Restore size' : 'View full size');
+    button.querySelector('use')?.setAttribute('href', expanded ? '#icon-minimize' : '#icon-expand');
+  }
 });
 
 function closeModal(restoreFocus = true) {
   document.querySelector('.modal-visual')?.classList.remove('media-tall');
+  document.getElementById('modalExpandBtn')?.querySelector('use')?.setAttribute('href', '#icon-expand');
   const modal = $('#modalBackdrop .modal');
   modal.style.transform = 'translateY(100%)';
   setTimeout(() => {
