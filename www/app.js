@@ -2095,15 +2095,17 @@ function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(
 function routineItemUnit(item,exercise){if(item?.unit==='sec'||item?.unit==='min')return item.unit;return isTimedCardioExercise(exercise)?'min':'sec'}
 function routineSecondsDisplay(seconds,unit){return unit==='min'?String(Math.round(((Number(seconds)||0)/60)*100)/100):String(Math.round(Number(seconds))||0)}
 function lastLoggedDurationFor(exerciseId){
-  const latest=latestLogFor(exerciseId);
-  if(!latest||!isTimedCardioLog(latest))return null;
+  const logs=[...state.progress.logs].filter(log=>log.exerciseId===exerciseId&&isTimedCardioLog(log)).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+  const latest=logs[0];
+  if(!latest)return null;
   const durations=Array.isArray(latest.setDurations)&&latest.setDurations.length?latest.setDurations:(sanitizeDurationValue(latest.duration)?[sanitizeDurationValue(latest.duration)]:[]);
   if(!durations.length)return null;
   return clamp(Math.round(Number(durations[durations.length-1]))||0,0,LIMITS.duration)||null;
 }
 function lastLoggedRepsFor(exerciseId){
-  const latest=latestLogFor(exerciseId);
-  if(!latest||isTimedCardioLog(latest))return null;
+  const logs=[...state.progress.logs].filter(log=>log.exerciseId===exerciseId&&!isTimedCardioLog(log)).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+  const latest=logs[0];
+  if(!latest)return null;
   if(Array.isArray(latest.setReps)&&latest.setReps.length){const value=clamp(Math.round(Number(latest.setReps[latest.setReps.length-1]))||0,1,LIMITS.reps);return value||null}
   if(Number(latest.reps)>=1)return clamp(Math.round(Number(latest.reps)),1,LIMITS.reps);
   return null;
@@ -2898,7 +2900,7 @@ function syncProgressDraft() {
   const sec = timed && draft.durationUnit === 'sec';
   const durationMax = sec ? LIMITS.duration * 60 : LIMITS.duration;
   const durationStep = sec ? 15 : 5;
-  const durationFallback = sec ? 30 : DEFAULTS.duration;
+  const durationFallback = sec ? 10 : 1;
   if (timed) {
     draft.setDurations = fitList(draft.setDurations, draft.sets, (value) => clamp(Math.round(Number(value)) || 0, 0, durationMax), durationFallback);
     draft.setDistances = fitList(draft.setDistances, draft.sets, (value) => Math.round(clamp(Number(value) || 0, 0, LIMITS.distance) * 10) / 10, DEFAULTS.distance);
@@ -4075,7 +4077,16 @@ $('#progressForm').addEventListener('click', (event) => {
     if (!state.progress.activeExerciseId) return;
     if (state.progress.draft.mode !== modeButton.dataset.mode) {
       state.progress.draft.mode = modeButton.dataset.mode;
-      if (modeButton.dataset.mode === 'timed') state.progress.draft.durationUnit = isTimedCardioExercise(getExercise(state.progress.activeExerciseId)) ? 'min' : 'sec';
+      const activeExerciseId = state.progress.activeExerciseId;
+      if (modeButton.dataset.mode === 'timed') {
+        state.progress.draft.durationUnit = isTimedCardioExercise(getExercise(activeExerciseId)) ? 'min' : 'sec';
+        const mins = lastLoggedDurationFor(activeExerciseId);
+        const seed = mins != null ? (state.progress.draft.durationUnit === 'sec' ? Math.max(10, Math.round(mins * 60)) : Math.max(1, mins)) : (state.progress.draft.durationUnit === 'sec' ? 10 : 1);
+        state.progress.draft.setDurations = Array.from({ length: state.progress.draft.sets }, () => seed);
+      } else {
+        const reps = lastLoggedRepsFor(activeExerciseId);
+        if (reps != null) state.progress.draft.setReps = Array.from({ length: state.progress.draft.sets }, () => reps);
+      }
       syncProgressDraft();
     }
     return;
