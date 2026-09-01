@@ -6,6 +6,27 @@
   <meta name="theme-color" content="#000000">
   <meta name="description" content="Browse 1,300+ exercises, build routines, track training progress, and manage nutrition, macros, and hydration.">
   <title>Form — Training & Nutrition</title>
+  <script>
+    (function () {
+      try {
+        var name = JSON.parse(localStorage.getItem('form-accent') || 'null');
+        var p = {
+          red:    ['#ff453a', '255, 69, 58'],
+          blue:   ['#0a84ff', '10, 132, 255'],
+          green:  ['#30d158', '48, 209, 88'],
+          orange: ['#ff9f0a', '255, 159, 10'],
+          purple: ['#bf5af2', '191, 90, 242'],
+          pink:   ['#ff64d9', '255, 100, 217']
+        }[name];
+        if (p) {
+          var s = document.documentElement.style;
+          s.setProperty('--accent', p[0]);
+          s.setProperty('--accent-ink', '#ffffff');
+          s.setProperty('--accent-rgb', p[1]);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
