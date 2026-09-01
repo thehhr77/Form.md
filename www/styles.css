@@ -907,9 +907,8 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .progress-log-paste > div { display: grid; grid-template-columns: .85fr 1fr 1.25fr; gap: var(--space-2); margin-top: var(--space-2); }
 .progress-log-paste button { min-height: var(--control-size); color: var(--text-soft); background: var(--surface-strong); border: none; font-weight: var(--weight-semibold); }
 
-.vault-path { cursor: text; }
-.vault-path [role="button"] { text-decoration: underline dotted rgba(255,255,255,.25); text-underline-offset: 3px; }
-.vault-path-input { flex: 0 1 140px; min-width: 90px; width: 140px; min-height: 34px; padding: 4px 8px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-medium); }
+.vault-path-prefix { color: var(--text-muted); font-size: 12px; font-weight: var(--weight-medium); flex-shrink: 0; }
+.vault-path-input { flex: 0 1 150px; min-width: 90px; width: 150px; min-height: 34px; padding: 4px 10px; color: var(--text); background: #1c1c1e; border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-control); font-size: 12px; font-weight: var(--weight-medium); }
 .vault-path-input:focus { outline: none; border-color: var(--accent); }
 .vault-reload-btn { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: none; border-radius: 50%; cursor: pointer; appearance: none; }
 .vault-reload-btn:active { color: var(--text); background: var(--surface-strong); }

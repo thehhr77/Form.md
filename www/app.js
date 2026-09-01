@@ -1095,9 +1095,7 @@ async function reloadVault() {
 /* ===================== VAULT UI ===================== */
 
 function updateVaultUI() {
-  const input = document.getElementById('vaultFolderInput');
-  const path = document.getElementById('vaultFolderPath');
-  if (path) path.textContent = VAULT.folder;
+  const input = document.getElementById('vaultFolderPath');
   if (input && document.activeElement !== input) input.value = VAULT.folder;
 }
 
@@ -5111,45 +5109,25 @@ initModalSwipeDown();
    ========================================================= */
 
 (function initVaultUI() {
-  const wrap = document.getElementById('vaultPathWrap');
-  const path = document.getElementById('vaultFolderPath');
-  const input = document.getElementById('vaultFolderInput');
+  const input = document.getElementById('vaultFolderPath');
   const reload = document.getElementById('vaultReloadBtn');
-  if (!path || !input) return;
+  if (!input) return;
   const stored = (() => { try { return localStorage.getItem(VAULT_FOLDER_KEY) || VAULT_DEFAULT_FOLDER; } catch { return VAULT_DEFAULT_FOLDER; } })();
   VAULT.folder = sanitizeVaultFolder(stored);
   input.value = VAULT.folder;
   updateVaultUI();
-  let editing = false;
-  const startEdit = () => {
-    if (editing) return;
-    editing = true;
-    if (wrap) wrap.hidden = true;
-    input.hidden = false;
-    input.value = VAULT.folder;
-    input.focus();
-    input.select();
+  const commit = () => {
+    const name = sanitizeVaultFolder(input.value);
+    input.value = name;
+    if (name !== VAULT.folder) switchVault(name);
+    else updateVaultUI();
   };
-  const endEdit = (commit) => {
-    if (!editing) return;
-    editing = false;
-    input.hidden = true;
-    if (wrap) wrap.hidden = false;
-    if (commit) {
-      const name = sanitizeVaultFolder(input.value);
-      input.value = name;
-      if (name !== VAULT.folder) { switchVault(name); return; }
-    }
-    updateVaultUI();
-  };
-  path.addEventListener('click', startEdit);
-  path.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEdit(); } });
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); endEdit(true); }
-    else if (e.key === 'Escape') { e.preventDefault(); endEdit(false); }
+    if (e.key === 'Enter') { e.preventDefault(); commit(); input.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); input.value = VAULT.folder; input.blur(); }
   });
-  input.addEventListener('blur', () => endEdit(true));
-  if (reload) reload.addEventListener('click', () => { endEdit(false); reloadVault(); });
+  input.addEventListener('blur', commit);
+  if (reload) reload.addEventListener('click', () => reloadVault());
 })();
 
 (async function initVaultBoot() {
