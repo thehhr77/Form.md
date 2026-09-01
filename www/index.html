@@ -114,9 +114,9 @@
 <aside class="routine-drawer panel-drawer" id="routineDrawer" role="dialog" aria-modal="true" aria-labelledby="routineTitle" aria-hidden="true">
   <div class="routine-header panel-header"><div><h2 id="routineTitle">Your routines</h2><span class="panel-summary" id="routineHeaderSummary">Create your first routine</span></div></div>
   <button class="routine-new-toggle" id="routineNewToggle" type="button"><svg class="icon"><use href="#icon-plus"/></svg><span>Add routine</span></button>
-  <div class="routine-switch"><label id="routineEditorLabel">Routine manager</label><div class="routine-select-row"><div class="routine-editor-control"><button class="routine-selector-button custom-select-button" id="routineSelectorButton" type="button" aria-haspopup="menu" aria-expanded="false">Select a routine to edit</button><input class="routine-name-editor" id="routineEditName" maxlength="40" placeholder="Routine name" aria-label="Routine name" hidden><div class="routine-menu" id="routineMenu" role="menu" hidden></div></div><button class="routine-like" id="likeRoutine" type="button" aria-label="Like routine" aria-pressed="false" disabled><svg class="icon"><use href="#icon-heart"/></svg></button><button id="deleteRoutine" type="button" aria-label="Delete routine" disabled>Delete</button></div></div>
+  <div class="routine-switch"><label>Routine manager</label><div class="routine-select-row"><div class="routine-editor-control"><button class="routine-selector-button custom-select-button" id="routineSelectorButton" type="button" aria-haspopup="menu" aria-expanded="false">Select a routine to edit</button><input class="routine-name-editor" id="routineEditName" maxlength="40" placeholder="Routine name" aria-label="Routine name" hidden><div class="routine-menu" id="routineMenu" role="menu" hidden></div></div><button class="routine-like" id="likeRoutine" type="button" aria-label="Like routine" aria-pressed="false" disabled><svg class="icon"><use href="#icon-heart"/></svg></button><button id="deleteRoutine" type="button" aria-label="Delete routine" disabled>Delete</button></div></div>
   <div class="routine-data-actions" aria-label="Routine copy and import tools"><button id="copyRoutine" type="button"><svg class="icon"><use href="#icon-copy"/></svg><span>Copy</span></button><button id="copyAllRoutines" type="button"><svg class="icon"><use href="#icon-copy-all"/></svg><span>Export</span></button><button id="pasteRoutineToggle" type="button" aria-expanded="false" aria-controls="routinePastePanel"><svg class="icon"><use href="#icon-clipboard"/></svg><span>Import</span></button></div>
-  <div class="routine-paste-panel" id="routinePastePanel" hidden><label for="routinePasteText">Paste routine text</label><textarea id="routinePasteText" spellcheck="false" placeholder="Chest&#10;0003 3 * 10&#10;0001 4 * 12&#10;&#10;Arms&#10;0006 3 * 10"></textarea><div class="routine-paste-actions"><button id="cancelRoutinePaste" type="button">Cancel</button><button id="addRoutineText" type="button">Add routines</button><button id="importRoutineText" type="button">Replace routines</button></div></div>
+  <div class="routine-paste-panel" id="routinePastePanel" hidden><label for="routinePasteText">Paste routine text</label><textarea id="routinePasteText" spellcheck="false" placeholder="Chest&#10;0003 3 * 10&#10;0001 4 * 12 timed min&#10;0006 3 * 10 weighted&#10;&#10;Arms&#10;0006 3 * 10 unweighted"></textarea><div class="routine-paste-actions"><button id="cancelRoutinePaste" type="button">Cancel</button><button id="addRoutineText" type="button">Add routines</button><button id="importRoutineText" type="button">Replace routines</button></div></div>
   <div class="routine-schedule" id="routineSchedule"></div>
   <button class="routine-add-exercises" id="routineAddExercises" type="button" hidden>Add exercise</button>
   <div class="routine-items" id="routineItems"></div>
@@ -159,7 +159,9 @@
               <button type="button" data-mode="timed" aria-pressed="false">Timed</button>
             </div>
           </div>
-          <button type="button" class="weight-toggle" id="progressWeightToggle" hidden aria-pressed="false">Add weight</button>
+          <div class="mode-switch" id="progressWeightSwitch" hidden>
+            <button type="button" id="progressWeightToggle" aria-pressed="false">Weight</button>
+          </div>
           <button type="button" class="progress-cancel" id="progressCancel">Cancel</button>
           <button class="feature-primary" id="progressSave" type="submit">Save</button>
         </div>
@@ -185,7 +187,7 @@
 <div class="feature-backdrop panel-backdrop" id="fuelBackdrop" role="dialog" aria-modal="true" aria-labelledby="fuelTitle" aria-hidden="true">
   <section class="feature-panel panel-drawer">
     <div class="routine-header panel-header">
-      <div><h2 id="fuelTitle">Fuel</h2><span class="panel-summary" id="fuelSubtitle">Daily balance, macros, hydration, and meals.</span></div>
+      <div><h2 id="fuelTitle">Fuel</h2><span class="panel-summary">Daily balance, macros, hydration, and meals.</span></div>
     </div>
     <div class="feature-scroll">
       <div class="fuel-stack">
@@ -204,7 +206,7 @@
             <div class="bmi-stat-card">
               <span class="bmi-stat-label">Current BMI</span>
               <strong id="bmiValDisplay" class="bmi-stat-value">23.7</strong>
-              <span id="bmiHealthyRange" class="bmi-stat-meta">Normal: 18.5 – 24.9</span>
+              <span class="bmi-stat-meta">Normal: 18.5 – 24.9</span>
             </div>
             <div class="bmi-stat-card">
               <span class="bmi-stat-label">Current Weight</span>
@@ -227,7 +229,7 @@
             <div class="fuel-daily-head">
               <div>
                 <span class="eyebrow" id="dailyBalanceDateEyebrow">—</span>
-                <h3 id="dailyBalanceTitle">Daily Balance</h3>
+                <h3>Daily Balance</h3>
               </div>
               <div class="date-stepper" aria-label="Date navigation">
                 <button class="date-stepper-btn date-stepper-prev" type="button" id="btnPrevDay" aria-label="Previous day">
@@ -314,7 +316,7 @@
             <button class="btn-reset-ingredient" type="button" aria-label="Reset selection">
               <svg class="icon"><use href="#icon-close"/></svg>
             </button>
-            <div class="routine-editor-control" id="ingredientCustomSelectWrap">
+            <div class="routine-editor-control">
               <button class="custom-select-button" id="btnCustomIngredientSelect" type="button" aria-haspopup="listbox" aria-expanded="false"><span id="lblCustomIngredient">-- Custom Entry / Other --</span></button>
               <div class="routine-menu" id="menuCustomIngredient" role="listbox" hidden></div>
             </div>
@@ -496,9 +498,9 @@
     </div>
     <button class="routine-new-toggle" id="fuelNewMealToggle" type="button"><svg class="icon"><use href="#icon-plus"/></svg><span>Add meal</span></button>
     <div class="routine-switch">
-      <label id="mealEditorLabel">Meal manager</label>
+      <label>Meal manager</label>
       <div class="routine-select-row">
-        <div class="routine-editor-control" id="manageMealCustomSelectWrap">
+        <div class="routine-editor-control">
           <button class="custom-select-button" id="btnCustomManageSelect" type="button" aria-haspopup="menu" aria-expanded="false">Select a meal to edit</button>
           <input class="routine-name-editor" id="manageMealEditName" maxlength="40" placeholder="Meal name" aria-label="Meal name" hidden>
           <div class="routine-menu" id="menuCustomManageSelect" role="menu" hidden></div>
@@ -685,7 +687,7 @@
               <span class="settings-row-main"><svg class="icon"><use href="#icon-reset"/></svg><span>Rest between sets</span></span>
               <div class="routine-stepper settings-stepper" data-rest-stepper="betweenSets" role="group" aria-label="Default rest between sets" aria-disabled="true">
                 <button class="routine-step" type="button" data-rest-step="-1" aria-label="Decrease rest between sets"><svg class="icon"><use href="#icon-minus"/></svg></button>
-                <output id="restBetweenSetsValue" aria-live="polite">60 sec</output>
+                <output aria-live="polite">60 sec</output>
                 <button class="routine-step" type="button" data-rest-step="1" aria-label="Increase rest between sets"><svg class="icon"><use href="#icon-plus"/></svg></button>
               </div>
             </div>
@@ -693,7 +695,7 @@
               <span class="settings-row-main"><svg class="icon"><use href="#icon-reset"/></svg><span>Rest between exercises</span></span>
               <div class="routine-stepper settings-stepper" data-rest-stepper="betweenExercise" role="group" aria-label="Default rest between exercises" aria-disabled="true">
                 <button class="routine-step" type="button" data-rest-step="-1" aria-label="Decrease rest between exercises"><svg class="icon"><use href="#icon-minus"/></svg></button>
-                <output id="restBetweenExerciseValue" aria-live="polite">90 sec</output>
+                <output aria-live="polite">90 sec</output>
                 <button class="routine-step" type="button" data-rest-step="1" aria-label="Increase rest between exercises"><svg class="icon"><use href="#icon-plus"/></svg></button>
               </div>
             </div>
@@ -735,7 +737,7 @@
                 <button type="button" data-editor-mode="hidden" aria-pressed="false">Hidden</button>
               </div>
             </div>
-            <button type="button" class="settings-row settings-row-action" id="togglesHostRow" data-editor-row="toggles">
+            <button type="button" class="settings-row settings-row-action" data-editor-row="toggles">
               <span class="settings-row-main"><span>Liked / Logged buttons</span></span>
               <span class="settings-row-value" id="togglesHostValue"></span>
             </button>
