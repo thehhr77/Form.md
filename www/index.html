@@ -147,19 +147,20 @@
       </section>
       <form class="progress-form" id="progressForm" hidden>
         <div class="progress-exercise-fixed feature-field-wide"><span>Exercise</span><strong id="progressExerciseName">Choose an exercise from its details page</strong><small id="progressExerciseMeta">Open an exercise and select Log progress.</small></div>
-        <div class="feature-field feature-field-wide" id="progressModeSwitch" hidden>
-          <span>Log as</span>
-          <div class="mode-switch">
-            <button type="button" data-mode="reps" aria-pressed="true">Sets × Reps</button>
-            <button type="button" data-mode="timed" aria-pressed="false">Intervals × Time</button>
-          </div>
-        </div>
-        <button type="button" class="weight-toggle feature-field-wide" id="progressWeightToggle" hidden aria-pressed="false">Add weight</button>
         <div class="feature-field progress-date-field"><span>Date</span><div class="progress-date-control"><input id="progressDate" type="hidden"><button class="progress-date-button" id="progressDateButton" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="progressDatePicker"><span id="progressDateDisplay"></span><svg class="icon progress-date-icon" aria-hidden="true"><use href="#icon-calendar"/></svg></button></div></div>
         <div class="feature-field" id="progressSetsField"><span id="progressSetsLabel">Sets</span><div class="routine-stepper"><button class="routine-step progress-step" type="button" data-field="sets" data-delta="-1" aria-label="Decrease sets"><svg class="icon"><use href="#icon-minus"/></svg></button><output id="progressSets" aria-live="polite">3</output><button class="routine-step progress-step" type="button" data-field="sets" data-delta="1" aria-label="Increase sets"><svg class="icon"><use href="#icon-plus"/></svg></button></div></div>
         <div class="feature-field feature-field-wide" id="progressSetsDetailField"><div class="set-weight-list" id="progressSetRows"></div></div>
         <label class="feature-field feature-field-wide"><span>Notes <small>optional</small></span><textarea id="progressNotes" maxlength="160" rows="2" placeholder="Form, tempo, or how the set felt"></textarea></label>
-        <button class="feature-primary feature-field-wide" id="progressSave" type="submit">Save progress entry</button>
+        <div class="progress-actions feature-field-wide">
+          <div class="feature-field" id="progressModeSwitch" hidden>
+            <div class="mode-switch">
+              <button type="button" data-mode="reps" aria-pressed="true">Sets × Reps</button>
+              <button type="button" data-mode="timed" aria-pressed="false">Timed</button>
+            </div>
+          </div>
+          <button type="button" class="weight-toggle" id="progressWeightToggle" hidden aria-pressed="false">Add weight</button>
+          <button class="feature-primary" id="progressSave" type="submit">Save</button>
+        </div>
       </form>
       <section class="progress-history" id="progressHistorySection"><div class="feature-section-head" id="progressHistoryHead" hidden><div id="progressHistoryContext" aria-live="polite">Current exercise</div></div><div id="progressHistory"></div></section>
     </div>

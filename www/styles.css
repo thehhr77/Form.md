@@ -560,6 +560,9 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .routine-menu-empty { display: block; padding: 10px; color: var(--text-muted); font-size: 12px; }
 
 /* Custom Select Floating Unified Component */
+.progress-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.progress-actions .weight-toggle { flex-shrink: 0; }
+.progress-actions #progressSave { margin-left: auto; min-height: var(--control-size); padding: 0 22px; }
 .mode-switch { display: inline-flex; gap: 2px; padding: 3px; background: #2c2c2e; border-radius: 999px; }
 .mode-switch button { min-height: 36px; padding: 0 16px; color: var(--text-muted); background: transparent; border: none; border-radius: 999px; font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: color .15s ease, background-color .15s ease; }
 .mode-switch button[aria-pressed="true"] { color: var(--accent); background: rgba(var(--accent-rgb), .16); }
