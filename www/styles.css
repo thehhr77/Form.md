@@ -569,7 +569,9 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .progress-actions .mode-switch button { min-height: 36px; }
 .progress-cancel { flex: 1 1 0; min-height: var(--control-size); padding: 0 15px; color: var(--text-soft); background: var(--surface-strong); border: none; border-radius: var(--radius-control); font-weight: var(--weight-semibold); cursor: pointer; }
 .progress-cancel:active { opacity: .7; }
-.progress-actions #progressSave { flex: 1 1 0; min-height: var(--control-size); padding: 0 15px; }
+.progress-actions #progressSave,
+.progress-actions #foodSave,
+.progress-actions #customExerciseSave { flex: 1 1 0; min-height: var(--control-size); padding: 0 15px; }
 .mode-switch { display: inline-flex; gap: 2px; padding: 3px; background: #2c2c2e; border-radius: 999px; }
 .mode-switch button { min-height: 36px; padding: 0 16px; color: var(--text-muted); background: transparent; border: none; border-radius: 999px; font-size: 12px; font-weight: var(--weight-semibold); cursor: pointer; appearance: none; transition: color .15s ease, background-color .15s ease; }
 .mode-switch button[aria-pressed="true"] { color: var(--accent); background: rgba(var(--accent-rgb), .16); }

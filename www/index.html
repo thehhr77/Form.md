@@ -403,7 +403,10 @@
             <button class="routine-step" type="button" data-food-field="f" data-food-delta="0.1" aria-label="Increase fats"><svg class="icon"><use href="#icon-plus"/></svg></button>
           </div>
         </div>
-        <button type="submit" class="feature-primary feature-field-wide">Add to food log</button>
+        <div class="progress-actions feature-field-wide">
+          <button type="button" class="progress-cancel" id="foodCancel">Cancel</button>
+          <button class="feature-primary" id="foodSave" type="submit">Save</button>
+        </div>
       </form>
     </div>
   </section>

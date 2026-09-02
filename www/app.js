@@ -4890,7 +4890,7 @@ function openCustomExerciseSheet(){
   openOverlay('customExercise');
 }
 $('#addCustomExerciseBtn').addEventListener('click',openCustomExerciseSheet);
-$('#customExerciseCancel').addEventListener('click',()=>{resetCustomExerciseSheet();});
+$('#customExerciseCancel').addEventListener('click',()=>{resetCustomExerciseSheet();closeOverlay('customExercise');});
 $('#customExerciseName').addEventListener('input',event=>{customExerciseDraft.name=event.target.value;syncCustomExerciseValidation();});
 $('#customExerciseDescription').addEventListener('input',event=>{customExerciseDraft.description=event.target.value;});
 $('#customExerciseBodyPart').addEventListener('click',event=>{
@@ -5818,6 +5818,7 @@ document.getElementById('waterActions')?.addEventListener('click', (event) => {
   if (event.target.closest('[data-water-reset]')) resetWater();
 });
 document.getElementById('foodForm').addEventListener('submit', handleFoodSubmit);
+$('#foodCancel')?.addEventListener('click', () => closeOverlay('logMeal'));
 document.querySelector('.btn-reset-ingredient')?.addEventListener('click', resetMealSelection);
 document.getElementById('btnCustomIngredientSelect')?.addEventListener('click', toggleIngredientDropdown);
 document.querySelector('.portion-quick-buttons')?.addEventListener('click', (event) => {
