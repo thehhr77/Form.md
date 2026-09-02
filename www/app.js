@@ -144,7 +144,7 @@ function createExerciseTag(exerciseId,value){
   const tags=exerciseTagsOf(exerciseId);
   if(tags.some(item=>item.toLowerCase()===tag.toLowerCase())){toast('Tag already assigned');return null;}
   const result=toggleExerciseTag(exerciseId,tag);
-  if(result!==null){renderModalTagMenu();renderFilterPills();}
+  if(result!==null){renderModalBadges(exercise);renderModalTagMenu();renderFilterPills();}
   return result;
 }
 function customExercisesToText(){
@@ -490,7 +490,7 @@ const state={
   planSection:'routines',
   supersetLinking:null,
   exerciseTags:{},
-  tag:'',
+  tags:'',
   fuel:loadFuelState(),
   fuelSelectedDate:localDateValue()
 };
@@ -1789,8 +1789,10 @@ $('#exerciseTagMenu').addEventListener('click',(event)=>{
   if(!exercise)return;
   const assigned=toggleExerciseTag(exercise.id,option.dataset.tagOption);
   if(assigned===null)return;
+  renderModalBadges(exercise);
   renderModalTagMenu();
   positionMenuBetween($('#exerciseTagMenu'),$('#modalTagAdd'),{alignRight:true,minWidth:240});
+  $('#modalTagAdd')?.setAttribute('aria-expanded','true');
   renderFilterPills();
 });
 $('#exerciseTagInput').addEventListener('keydown',(event)=>{
@@ -1942,7 +1944,7 @@ function buildFilterContext(skipKey=null){
     idQuery,
     routine:state.routines.find(item=>item.id===state.routineFilter),
     loggedIds:state.loggedOnly?new Set(state.progress.logs.map(log=>log.exerciseId)):null,
-    tag:state.tag?state.tag.toLowerCase():'',
+    tag:state.tags?state.tags.toLowerCase():'',
     skipKey
   };
 }
@@ -2055,9 +2057,9 @@ function render(){
   renderFilterPills();
   syncCustomSelects();
 }
-function hasFilters(){return state.search||state.category||state.target||state.equipment||state.routineFilter||state.savedOnly||state.loggedOnly||state.tag}
+function hasFilters(){return state.search||state.category||state.target||state.equipment||state.routineFilter||state.savedOnly||state.loggedOnly||state.tags}
 function resetFilters(){
-  Object.assign(state,{search:'',category:'',target:'',equipment:'',routineFilter:'',savedOnly:false,loggedOnly:false,tag:'',sort:'name',limit:DEFAULTS.pageSize});
+  Object.assign(state,{search:'',category:'',target:'',equipment:'',routineFilter:'',savedOnly:false,loggedOnly:false,tags:'',sort:'name',limit:DEFAULTS.pageSize});
   $('#search').value='';
   syncRoutineSort();
   render();
@@ -3018,6 +3020,20 @@ function resetModalScrollPosition() {
   $('.modal').scrollTop = 0;
   $('.modal-content').scrollTop = 0;
 }
+function renderModalBadges(exercise){
+  const bodyPart = exercise.category || 'Body';
+  const target = exercise.target || 'General';
+  const equipment = exercise.equipment || 'Body Weight';
+  const secondaries = Array.isArray(exercise.secondary_muscles) ? exercise.secondary_muscles : [];
+  const badgesHtml = [
+    `<span class="modal-badge-pill pill-bodypart">${esc(title(bodyPart))}</span>`,
+    `<span class="modal-badge-pill"><svg class="icon"><use href="#icon-target"/></svg><span>${esc(title(target))}</span></span>`,
+    `<span class="modal-badge-pill"><svg class="icon"><use href="#icon-dumbbell"/></svg><span>${esc(title(equipment))}</span></span>`,
+    ...secondaries.map(sec => `<span class="modal-badge-pill"><span>${esc(title(sec))}</span></span>`),
+    ...exerciseTagsOf(exercise.id).map(tag => `<span class="modal-badge-pill modal-tag-pill"><svg class="icon"><use href="#icon-hash"/></svg><span>${esc(tag)}</span></span>`)
+  ].join('');
+  $('#modalBadges').innerHTML = badgesHtml + `<button type="button" class="modal-badge-pill modal-tag-add" id="modalTagAdd" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-plus"/></svg></button>`;
+}
 function openModal(exercise, returnFocus = document.activeElement) {
   state.activeExercise = exercise;
   state.activeGifPaused = false;
@@ -3027,16 +3043,7 @@ function openModal(exercise, returnFocus = document.activeElement) {
   const bodyPart = exercise.category || 'Body';
   const target = exercise.target || 'General';
   const equipment = exercise.equipment || 'Body Weight';
-  const secondaries = Array.isArray(exercise.secondary_muscles) ? exercise.secondary_muscles : [];
-
-  const badgesHtml = [
-    `<span class="modal-badge-pill pill-bodypart">${esc(title(bodyPart))}</span>`,
-    `<span class="modal-badge-pill"><svg class="icon"><use href="#icon-target"/></svg><span>${esc(title(target))}</span></span>`,
-    `<span class="modal-badge-pill"><svg class="icon"><use href="#icon-dumbbell"/></svg><span>${esc(title(equipment))}</span></span>`,
-    ...secondaries.map(sec => `<span class="modal-badge-pill"><span>${esc(title(sec))}</span></span>`)
-  ].join('');
-
-  $('#modalBadges').innerHTML = badgesHtml + `<button type="button" class="modal-badge-pill modal-tag-add" id="modalTagAdd" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-plus"/></svg></button>`;
+  renderModalBadges(exercise);
   hideTagMenu();
 
   const image = $('#modalImage');
@@ -3484,7 +3491,7 @@ async function handleClearDataSubmit(event) {
 
   if (clearTags) {
     state.exerciseTags = {};
-    state.tag = '';
+    state.tags = '';
     if (VAULT.loaded) { markDirty('config'); scheduleVaultSave('config'); }
     persistExerciseTags();
     renderFilterPills();
@@ -4178,7 +4185,7 @@ function renderFilterPills(){
     if(key==='routine'){
       values=orderedRoutines().filter(routine=>routine.items.length).map(routine=>[routine.id,routine.name]);
     }else if(key==='tags'){
-      values=tagsIndex().map(entry=>[entry.label,`${entry.label} (${entry.exercises.size})`]);
+      values=tagsIndex().map(entry=>[entry.label,entry.label]);
     }else{
       values=uniqueValues(key).map(value=>[value,title(value)]);
     }
