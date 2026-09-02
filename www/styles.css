@@ -36,7 +36,6 @@
   --shadow: 0 1px 2px rgba(0,0,0,.18), 0 12px 36px rgba(0,0,0,.24);
   --frame-max: 480px;
   --frame-inset: max(0px, (100vw - var(--frame-max)) / 2);
-  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
 }
 
 * {
@@ -232,7 +231,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .aw-rest-pill {
   position: fixed;
   left: 50%;
-  bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+  bottom: 76px;
   transform: translateX(-50%);
   z-index: 118;
   display: flex;
@@ -277,7 +276,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   display: flex;
   position: fixed;
-  bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+  bottom: 76px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 118;
@@ -327,7 +326,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   .fuel-modal-backdrop.open .fuel-modal { animation: fadeIn .2s ease; }
 }
 .plan-scroll-clear.plan-scroll-clear {
-  padding-bottom: var(--plan-clear, calc(env(safe-area-inset-bottom) + 118px));
+  padding-bottom: var(--plan-clear, 118px);
 }
 
 .media img { width: 100%; height: 100%; display: block; object-fit: cover; }
@@ -1072,7 +1071,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .toast {
   position: fixed;
   left: 50%;
-  top: calc(var(--safe-top) + 10px);
+  top: 10px;
   z-index: 300;
   display: flex;
   align-items: center;
@@ -1650,22 +1649,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     pointer-events: none;
   }
 
-  body[data-mobile-tab="dashboard"]::before,
-  body[data-mobile-tab="plan"]::before,
-  body[data-mobile-tab="fuel"]::before,
-  body[data-mobile-tab="settings"]::before,
-  .feature-backdrop.open::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: 0;
-    z-index: 115;
-    height: var(--safe-top);
-    background: #000000;
-    pointer-events: none;
-  }
-  .app { padding-top: var(--safe-top); padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .app { padding-bottom: 76px; }
 
   /* Unified 12px horizontal padding container across all tabs */
   .shell { padding: 0 var(--space-3); max-width: var(--frame-max); margin-inline: auto; }
@@ -1680,8 +1664,8 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     z-index: 120;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    min-height: calc(64px + env(safe-area-inset-bottom));
-    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    min-height: 64px;
+    padding: 6px 8px 6px;
     background: #000000;
     border: none;
     border-top: 1px solid var(--border);
@@ -1817,11 +1801,11 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   /* Full-Screen Panels on Phone (Routines, Dashboard, Fuel, Meals) */
   .routine-drawer.mobile-tab-active {
     position: fixed;
-    inset: var(--safe-top) var(--frame-inset) auto;
+    inset: 0 var(--frame-inset) auto;
     z-index: 90;
     width: auto;
     max-width: none;
-    height: calc(100dvh - var(--safe-top) - 64px - env(safe-area-inset-bottom));
+    height: calc(100dvh - 64px);
     overflow: hidden;
     padding: 6px var(--space-3) 0;
     background: #000000;
@@ -1841,11 +1825,11 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 
   .feature-backdrop.mobile-tab-active {
     position: fixed;
-    inset: var(--safe-top) var(--frame-inset) 0;
+    inset: 0 var(--frame-inset) 0;
     z-index: 90;
     align-items: stretch;
     justify-content: stretch;
-    padding: 0 0 calc(64px + env(safe-area-inset-bottom));
+    padding: 0 0 64px;
     background: #000000;
     display: flex;
     opacity: 1;
@@ -1875,9 +1859,9 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   }
   .fuel-drawer-backdrop.mobile-tab-active .fuel-drawer {
     position: fixed;
-    top: var(--safe-top);
+    top: 0;
     right: var(--frame-inset);
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: 64px;
     left: var(--frame-inset);
     width: auto;
     max-height: none;
@@ -1895,17 +1879,17 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   .fuel-modal-backdrop {
     align-items: flex-end;
     justify-content: center;
-    padding: 0 0 calc(64px + env(safe-area-inset-bottom));
+    padding: 0 0 64px;
   }
   .feature-backdrop:not(.mobile-tab-active) .feature-panel {
     position: fixed;
-    top: var(--safe-top);
+    top: 0;
     right: var(--frame-inset);
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: 64px;
     left: var(--frame-inset);
     width: auto;
     max-width: none;
-    height: calc(100dvh - var(--safe-top) - 64px - env(safe-area-inset-bottom));
+    height: calc(100dvh - 64px);
     max-height: none;
     background: #000000;
     border: none !important;
@@ -1931,7 +1915,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   #fuelLogMealModal:not(.mobile-tab-active) .feature-panel {
     top: auto;
     height: auto;
-    max-height: calc(100dvh - var(--safe-top) - 76px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 76px);
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
     border-top: 1px solid var(--border-strong) !important;
     overflow-y: auto;
@@ -1957,12 +1941,12 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     position: fixed;
     top: auto;
     right: var(--frame-inset);
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: 64px;
     left: var(--frame-inset);
     width: auto;
     max-width: none;
     height: auto;
-    max-height: calc(100dvh - var(--safe-top) - 76px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 76px);
     background: #000000;
     border: none !important;
     border-top: 1px solid var(--border-strong) !important;
@@ -1997,18 +1981,18 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   /* Exercise description modal */
   .modal-backdrop.open {
     align-items: flex-end;
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: 64px;
   }
   .modal-backdrop.open .modal {
     position: fixed;
     top: auto;
     right: var(--frame-inset);
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: 64px;
     left: var(--frame-inset);
     width: auto;
     max-width: none;
     height: auto;
-    max-height: calc(100dvh - var(--safe-top) - 76px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 76px);
     background: #000000;
     border: none !important;
     border-top: 1px solid var(--border-strong) !important;
@@ -2032,7 +2016,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     .fuel-modal-backdrop.open .fuel-modal { animation: sheetUp .25s cubic-bezier(0.32, 0.72, 0, 1); }
   }
 
-  .progress-date-picker-layer { align-items: end; padding: var(--space-3) var(--space-3) max(var(--space-4), env(safe-area-inset-bottom)); }
+  .progress-date-picker-layer { align-items: end; padding: var(--space-3) var(--space-3) var(--space-4); }
   .progress-date-picker-card { width: 100%; max-width: 380px; background: #1c1c1e; border: none; border-radius: var(--radius-sheet); }
 
   .fuel-drawer-backdrop {
@@ -2043,7 +2027,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
     pointer-events: none;
   }
   .fuel-manager-drawer { padding: 0 var(--space-3); background: #000000; }
-  .fuel-manager-scroll { padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+  .fuel-manager-scroll { padding-bottom: var(--space-4); }
 
   /* Modal in phone view */
   .modal { overflow: auto; aspect-ratio: auto; overscroll-behavior: contain; }
@@ -2135,7 +2119,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   }
   .modal-progress > span { font-size: 11px; }
   .modal-progress-actions { display: flex; align-items: center; gap: var(--space-2); }
-  .routine-drawer { padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+  .routine-drawer { padding-bottom: var(--space-4); }
 
 @media (max-width: 380px) {
   .progress-form { grid-template-columns: 1fr; }
