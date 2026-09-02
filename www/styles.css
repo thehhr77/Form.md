@@ -869,6 +869,8 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   .accent-swatch { transition: none; }
 }
 .settings-row { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: 8px var(--space-3); }
+.settings-io-actions { flex-shrink: 0; display: flex; gap: 6px; }
+.settings-io-actions .pill { min-height: 30px; padding: 0 14px; }
 .settings-switch {
   width: 44px;
   height: 26px;
@@ -1016,6 +1018,21 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .progress-date-picker-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
 .progress-date-picker-actions button { min-height: 36px; padding: 0 12px; color: var(--text-soft); background: var(--surface-strong); border: none; border-radius: 10px; font-size: 11px; font-weight: var(--weight-semibold); }
 .feature-field textarea { min-height: 72px; padding-top: 10px; resize: vertical; }
+.custom-exercise-list { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.custom-exercise-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 8px var(--space-3); background: #1c1c1e; border-radius: var(--radius-control); }
+.custom-exercise-copy { min-width: 0; display: grid; gap: 2px; }
+.custom-exercise-copy strong { overflow: hidden; color: var(--text); font-size: 13.5px; font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
+.custom-exercise-copy span { color: var(--text-muted); font-size: 11px; }
+.custom-exercise-actions { flex-shrink: 0; display: flex; gap: 4px; }
+.custom-exercise-edit, .custom-exercise-delete { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: none; border-radius: 50%; cursor: pointer; appearance: none; }
+.custom-exercise-edit .icon, .custom-exercise-delete .icon { width: 16px; height: 16px; }
+.custom-exercise-delete { color: var(--danger); }
+.custom-exercise-empty { color: var(--text-muted); font-size: 12px; }
+.media.media-custom { display: grid; place-items: center; }
+.media-custom .custom-icon .icon, .aw-media-custom .custom-icon .icon { width: 42px; height: 42px; color: var(--text-muted); }
+.aw-media-custom { display: grid; place-items: center; }
+.modal.custom-exercise { aspect-ratio: auto; }
+.modal.custom-exercise .modal-visual[hidden] { display: none; }
 .feature-primary { grid-column: 1 / -1; }
 
 /* Per-set weight editor */

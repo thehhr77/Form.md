@@ -407,6 +407,29 @@
   </section>
 </div>
 
+<!-- CUSTOM EXERCISES PANEL -->
+<div class="feature-backdrop panel-backdrop" id="customExerciseModal" role="dialog" aria-modal="true" aria-labelledby="customExerciseTitle" aria-hidden="true">
+  <section class="feature-panel panel-drawer">
+    <div class="routine-header panel-header">
+      <div><h2 id="customExerciseTitle" class="phone-title">Custom exercises</h2><span class="panel-summary">Create your own exercises and manage them here.</span></div>
+    </div>
+    <div class="feature-scroll">
+      <form class="progress-form" id="customExerciseForm">
+        <div class="feature-field feature-field-wide"><span>Name</span><input id="customExerciseName" type="text" maxlength="80" placeholder="e.g. Landmine press" autocomplete="off"></div>
+        <div class="feature-field feature-field-wide"><span>Body part</span><div class="pill-row" id="customExerciseBodyPart" role="group" aria-label="Body part"></div></div>
+        <div class="feature-field feature-field-wide"><span>Target <small>optional</small></span><div class="pill-row" id="customExerciseTarget" role="group" aria-label="Target muscle"></div></div>
+        <div class="feature-field feature-field-wide"><span>Equipment <small>optional</small></span><div class="pill-row" id="customExerciseEquipment" role="group" aria-label="Equipment"></div></div>
+        <label class="feature-field feature-field-wide"><span>Description <small>optional</small></span><textarea id="customExerciseDescription" maxlength="300" rows="2" placeholder="Setup, form cues, or notes"></textarea></label>
+        <div class="progress-actions feature-field-wide">
+          <button type="button" class="progress-cancel" id="customExerciseCancel">Cancel</button>
+          <button class="feature-primary" id="customExerciseSave" type="submit" disabled>Add exercise</button>
+        </div>
+      </form>
+      <section class="custom-exercise-list" id="customExerciseList" aria-label="Saved custom exercises"></section>
+    </div>
+  </section>
+</div>
+
 <!-- FUEL: BODY METRICS & TDEE MODAL -->
 <div class="fuel-modal-backdrop fuel-overlay" id="bodyMetricsModal" role="dialog" aria-modal="true" aria-labelledby="metricsModalTitle" aria-hidden="true">
   <div class="fuel-modal">
@@ -695,6 +718,9 @@
               <span class="settings-row-main"><svg class="icon"><use href="#icon-routine"/></svg><span>Workout reminder</span></span>
               <button type="button" class="settings-switch" id="workoutReminder" role="switch" aria-checked="true" aria-label="Workout reminder banner"></button>
             </div>
+            <button type="button" class="settings-row settings-row-action" id="addCustomExerciseBtn">
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-plus"/></svg><span>Add custom exercise</span></span>
+            </button>
           </div>
         </section>
 
@@ -789,20 +815,30 @@
               <input id="vaultFolderPath" class="vault-path-input" type="text" placeholder="Gym2026" aria-label="Vault folder name" autocomplete="off" spellcheck="false" readonly>
               <button type="button" class="vault-reload-btn" id="vaultReloadBtn" aria-label="Reload vault from disk"><svg class="icon"><use href="#icon-reset"/></svg></button>
             </div>
-            <button type="button" class="settings-row settings-row-action" id="progressCopyLog">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-copy"/></svg><span>Export training log</span></span>
-            </button>
-            <button type="button" class="settings-row settings-row-action" id="progressPasteLog" aria-expanded="false" aria-controls="progressLogPaste">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-clipboard"/></svg><span>Import training log</span></span>
-            </button>
-            <div class="progress-log-paste" id="progressLogPaste" hidden><label for="progressLogPasteText">Progress log text</label><textarea id="progressLogPasteText" spellcheck="false" placeholder="exercise: &quot;3/4 Sit-Up&quot;&#10;exerciseId: #0001&#10;date: 2026-08-11&#10;sets: 3&#10;reps: 10&#10;weight: 7.5&#10;notes:&#10;id: 1786473550906"></textarea><div><button id="progressLogPasteCancel" type="button">Cancel</button><button id="progressLogPasteAdd" type="button">Add log</button><button id="progressLogPasteImport" type="button">Replace log</button></div></div>
-            <button type="button" class="settings-row settings-row-action" id="mealCopyLog">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-copy"/></svg><span>Export meal log</span></span>
-            </button>
-            <button type="button" class="settings-row settings-row-action" id="mealPasteLog" aria-expanded="false" aria-controls="mealLogPaste">
-              <span class="settings-row-main"><svg class="icon"><use href="#icon-clipboard"/></svg><span>Import meal log</span></span>
-            </button>
+            <div class="settings-row">
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-progress"/></svg><span>Training logs</span></span>
+              <div class="settings-io-actions">
+                <button type="button" class="pill" id="progressCopyLog">Export</button>
+                <button type="button" class="pill" id="progressPasteLog" aria-expanded="false" aria-controls="progressLogPaste">Import</button>
+              </div>
+            </div>
+            <div class="progress-log-paste" id="progressLogPaste" hidden><label for="progressLogPasteText">Progress log text</label><textarea id="progressLogPasteText" spellcheck="false" placeholder="exercise: &quot;Lever Alternating Narrow Grip Seated Row&quot;&#10;exerciseId: #0571&#10;date: 2026-08-27&#10;int: 3&#10;dur(sec): 15, 15, 15&#10;dist(km): 2, 2, 2&#10;notes:&#10;id: 1787840342296&#10;&#10;exercise: &quot;Cable Lateral Pulldown With V-Bar&quot;&#10;exerciseId: #2616&#10;date: 2026-08-27&#10;sets: 3&#10;weight(kg): 25, 25, 25&#10;reps: 12, 12, 12&#10;notes:&#10;id: 1787840342296"></textarea><div><button id="progressLogPasteCancel" type="button">Cancel</button><button id="progressLogPasteAdd" type="button">Add log</button><button id="progressLogPasteImport" type="button">Replace log</button></div></div>
+            <div class="settings-row">
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-flame"/></svg><span>Meal logs</span></span>
+              <div class="settings-io-actions">
+                <button type="button" class="pill" id="mealCopyLog">Export</button>
+                <button type="button" class="pill" id="mealPasteLog" aria-expanded="false" aria-controls="mealLogPaste">Import</button>
+              </div>
+            </div>
             <div class="progress-log-paste" id="mealLogPaste" hidden><label for="mealLogPasteText">Meal log text</label><textarea id="mealLogPasteText" spellcheck="false" placeholder='date: 2026-08-11&#10;water: 1000 ml&#10;&#10;date: 2026-08-11&#10;Egg (150g) - Dinner&#10;209cal 18.9pro 1carb 14.3fat&#10;id: 1786473550906'></textarea><div><button id="mealLogPasteCancel" type="button">Cancel</button><button id="mealLogPasteAdd" type="button">Add log</button><button id="mealLogPasteImport" type="button">Replace log</button></div></div>
+            <div class="settings-row">
+              <span class="settings-row-main"><svg class="icon"><use href="#icon-dumbbell"/></svg><span>Custom exercises</span></span>
+              <div class="settings-io-actions">
+                <button type="button" class="pill" id="customExerciseCopyLog">Export</button>
+                <button type="button" class="pill" id="customExercisePasteLog" aria-expanded="false" aria-controls="customExercisePaste">Import</button>
+              </div>
+            </div>
+            <div class="progress-log-paste" id="customExercisePaste" hidden><label for="customExercisePasteText">Custom exercises text</label><textarea id="customExercisePasteText" spellcheck="false" placeholder='## Custom Exercises&#10;- name: Landmine press&#10;  id: c-1750000000-ab12cd&#10;  category: chest&#10;  target: pectorals&#10;  equipment: barbell&#10;  description: Press from angle'></textarea><div><button id="customExercisePasteCancel" type="button">Cancel</button><button id="customExercisePasteAdd" type="button">Add exercises</button><button id="customExercisePasteImport" type="button">Replace all</button></div></div>
             <button type="button" class="settings-row settings-row-action settings-row-danger" id="progressClearDataBtn">
               <span class="settings-row-main"><svg class="icon"><use href="#icon-trash"/></svg><span>Clear data…</span></span>
               <svg class="icon settings-chevron" aria-hidden="true"><use href="#icon-chevron-right"/></svg>
@@ -834,6 +870,7 @@
         <label class="check"><input type="checkbox" id="chkClearSaved"><span>Saved exercises</span></label>
         <label class="check"><input type="checkbox" id="chkClearFuelDiary"><span>Nutrition food & hydration diary</span></label>
         <label class="check"><input type="checkbox" id="chkClearMeals"><span>Custom meal library</span></label>
+        <label class="check"><input type="checkbox" id="chkClearCustomExercises"><span>Custom exercises</span></label>
       </div>
       <div class="clear-data-actions">
         <button type="button" class="btn-clear-cancel">Cancel</button>
