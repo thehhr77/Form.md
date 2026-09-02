@@ -1697,7 +1697,7 @@ function positionMenuBetween(menu, button, options=null){
   menu.style.bottom=bottom;
   return openUp;
 }
-const LEGACY_MENUS=[['routineMenu','routineSelectorButton'],['menuCustomManageSelect','btnCustomManageSelect'],['menuCustomIngredient','btnCustomIngredientSelect']];
+const LEGACY_MENUS=[['routineMenu','routineSelectorButton'],['menuCustomManageSelect','btnCustomManageSelect'],['menuCustomIngredient','btnCustomIngredientSelect'],['exerciseTagMenu','modalTagAdd',{alignRight:true,minWidth:240}]];
 function repositionOpenLegacyMenus(){
   for(const[menuId,buttonId,options]of LEGACY_MENUS){
     const menu=document.getElementById(menuId);
@@ -1749,7 +1749,7 @@ function closeAllCustomMenus(except=null){
   if(manageMenu&&!manageMenu.hidden&&manageMenu!==except){manageMenu.hidden=true;$('#btnCustomManageSelect')?.setAttribute('aria-expanded','false');}
   const ingredientMenu=$('#menuCustomIngredient');
   if(ingredientMenu&&!ingredientMenu.hidden&&ingredientMenu!==except){ingredientMenu.hidden=true;$('#btnCustomIngredientSelect')?.setAttribute('aria-expanded','false');}
-  hideTagMenu();
+  hideTagMenu(except);
 }
 function renderModalTagMenu(){
   const menu=$('#exerciseTagMenu'),list=$('#exerciseTagOptions');
@@ -1765,9 +1765,9 @@ function renderModalTagMenu(){
   const input=$('#exerciseTagInput');
   if(input)input.value='';
 }
-function hideTagMenu(){
+function hideTagMenu(except=null){
   const menu=$('#exerciseTagMenu');
-  if(!menu||menu.hidden)return;
+  if(!menu||menu.hidden||menu===except)return;
   menu.hidden=true;
   $('#modalTagAdd')?.setAttribute('aria-expanded','false');
 }
@@ -1918,6 +1918,7 @@ function initMenuKeyboard(menuId,buttonId){
 function syncCustomSelects(){CUSTOM_SELECT_IDS.forEach(id=>syncCustomSelect(document.getElementById(id)))}
 document.addEventListener('click',event=>{
   if(event.target.closest('#mobileSortMenu')||event.target.closest('#mobileSortBtn'))return;
+  if(event.target.closest('#exerciseTagMenu')||event.target.closest('#modalTagAdd'))return;
   if(!event.target.closest('.custom-select')&&!event.target.closest('.routine-editor-control'))closeAllCustomMenus();
   closeSortMenu();
 });

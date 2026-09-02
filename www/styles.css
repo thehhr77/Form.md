@@ -505,14 +505,21 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   color: currentColor;
 }
 button.modal-tag-add {
-  padding: 4px 6px;
-  color: #ecece6;
+  padding: 4px 5px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
   cursor: pointer;
   appearance: none;
+  align-self: center;
+}
+button.modal-tag-add:active {
+  color: var(--text);
 }
 button.modal-tag-add .icon {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
+  color: currentColor;
 }
 .exercise-tag-menu {
   position: fixed;
