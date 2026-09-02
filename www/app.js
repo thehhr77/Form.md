@@ -28,6 +28,7 @@ const STORAGE_KEYS=Object.freeze({
   awBannerDismissed:'form-aw-banner-dismissed',
   accent:'form-accent',
   customExercises:'form-custom-exercises',
+  tags:'form-exercise-tags',
   fuel:'form-fuel-data',
   legacyFuel:'fuel_fdc_nutrition_db'
 });
@@ -106,6 +107,45 @@ function updateCustomExercise(exerciseId,data){
   persistCustomExercises();
   if(VAULT.loaded){markDirty('config');scheduleVaultSave('config');}
   return exercise;
+}
+const TAG_LIMITS=Object.freeze({perExercise:12,distinct:100,maxLength:24});
+function sanitizeTagName(value){return String(value||'').replace(/[,|#]/g,' ').replace(/\s+/g,' ').trim().slice(0,TAG_LIMITS.maxLength)}
+function exerciseTagsOf(exerciseId){return state.exerciseTags[String(exerciseId)]||[]}
+function allTagNames(){
+  const seen=new Map();
+  for(const tags of Object.values(state.exerciseTags))for(const tag of tags){
+    const key=tag.toLowerCase();
+    if(!seen.has(key))seen.set(key,tag);
+  }
+  return[...seen.values()].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+}
+function tagsIndex(){
+  const index=new Map();
+  for(const[exerciseId,tags]of Object.entries(state.exerciseTags))for(const tag of tags){
+    const key=tag.toLowerCase();
+    if(!index.has(key))index.set(key,{label:tag,exercises:new Set()});
+    index.get(key).exercises.add(String(exerciseId));
+  }
+  return[...index.values()].sort((a,b)=>b.exercises.size-a.exercises.size||a.label.localeCompare(b.label,undefined,{sensitivity:'base'}));
+}
+function persistExerciseTags(){writeStorage(STORAGE_KEYS.tags,state.exerciseTags);if(VAULT.loaded){markDirty('config');scheduleVaultSave('config');}}
+function toggleExerciseTag(exerciseId,tag){
+  const id=String(exerciseId),tags=exerciseTagsOf(id),key=tag.toLowerCase();
+  const index=tags.findIndex(item=>item.toLowerCase()===key);
+  if(index>=0){tags.splice(index,1);if(!tags.length)delete state.exerciseTags[id];persistExerciseTags();return false;}
+  if(tags.length>=TAG_LIMITS.perExercise){toast(`Max ${TAG_LIMITS.perExercise} tags per exercise`);return null;}
+  const assigned=new Set(Object.values(state.exerciseTags).flat().map(item=>item.toLowerCase()));
+  if(!assigned.has(key)&&assigned.size>=TAG_LIMITS.distinct){toast(`Max ${TAG_LIMITS.distinct} distinct tags`);return null;}
+  tags.push(tag);state.exerciseTags[id]=tags;persistExerciseTags();return true;
+}
+function createExerciseTag(exerciseId,value){
+  const tag=sanitizeTagName(value);
+  if(!tag){toast('Tag name is empty');return null;}
+  const tags=exerciseTagsOf(exerciseId);
+  if(tags.some(item=>item.toLowerCase()===tag.toLowerCase())){toast('Tag already assigned');return null;}
+  const result=toggleExerciseTag(exerciseId,tag);
+  if(result!==null){renderModalTagMenu();renderFilterPills();}
+  return result;
 }
 function customExercisesToText(){
   if(!CUSTOM_EXERCISES.length)return'';
@@ -228,7 +268,7 @@ const VALID_EXERCISE_IDS=new Set(EXERCISES.map(exercise=>String(exercise.id)));
 const getExercise=id=>EXERCISE_BY_ID.get(String(id))||null;
 
 function safeParse(raw,fallback,check){try{const value=JSON.parse(raw);return check&&!check(value)?fallback:value??fallback}catch{return fallback}}
-const VAULT_DATA_KEYS=Object.freeze(new Set([STORAGE_KEYS.saved,STORAGE_KEYS.legacySaved,STORAGE_KEYS.routines,STORAGE_KEYS.schedule,STORAGE_KEYS.progress,STORAGE_KEYS.progressPreferences,STORAGE_KEYS.workoutReminder,STORAGE_KEYS.restPrefs,STORAGE_KEYS.pillRowModes,STORAGE_KEYS.customExercises,STORAGE_KEYS.fuel,STORAGE_KEYS.legacyFuel]));
+const VAULT_DATA_KEYS=Object.freeze(new Set([STORAGE_KEYS.saved,STORAGE_KEYS.legacySaved,STORAGE_KEYS.routines,STORAGE_KEYS.schedule,STORAGE_KEYS.progress,STORAGE_KEYS.progressPreferences,STORAGE_KEYS.workoutReminder,STORAGE_KEYS.restPrefs,STORAGE_KEYS.pillRowModes,STORAGE_KEYS.customExercises,STORAGE_KEYS.tags,STORAGE_KEYS.fuel,STORAGE_KEYS.legacyFuel]));
 function readStorage(key,fallback,check){try{return safeParse(localStorage.getItem(key),fallback,check)}catch{return fallback}}
 function writeStorage(key,value){
   if(VAULT_DATA_KEYS.has(key)&&VAULT.loaded)return;
@@ -409,7 +449,7 @@ function loadProgressLogs(){
   });
 }
 function normalizeProgressPreferences(value){const firstDay=Number(value?.firstDay);const defaultView=['week','month','all'].includes(value?.defaultView)?value.defaultView:'week';return{firstDay:[0,1,6].includes(firstDay)?firstDay:1,defaultView}}
-function normalizePillRowModes(value){const modes=['default','pin','hidden'],keys=['routine','category','target','equipment'],out={};keys.forEach(key=>{out[key]=modes.includes(value?.[key])?value[key]:'default'});out.toggles=['routine','category','target','equipment'].includes(value?.toggles)?value.toggles:'equipment';return out}
+function normalizePillRowModes(value){const modes=['default','pin','hidden'],keys=['routine','category','target','equipment','tags'],out={};keys.forEach(key=>{out[key]=modes.includes(value?.[key])?value[key]:'default'});out.toggles=['routine','category','target','equipment','tags'].includes(value?.toggles)?value.toggles:'equipment';return out}
 function roundRestDuration(value,fallback){const target=Math.round(Number(value)/5)*5;return Number.isFinite(target)?clamp(target,30,180):fallback}
 function normalizeRestPrefs(value){return{enabled:value?.enabled===true,betweenSets:roundRestDuration(value?.betweenSets,60),betweenExercise:roundRestDuration(value?.betweenExercise,90)}}
 
@@ -449,6 +489,8 @@ const state={
   mobileTab:'workout',
   planSection:'routines',
   supersetLinking:null,
+  exerciseTags:{},
+  tag:'',
   fuel:loadFuelState(),
   fuelSelectedDate:localDateValue()
 };
@@ -805,7 +847,7 @@ function parseNutritionDiaryMd(text) {
 
 function parseConfigMd(text) {
   const lines = readVaultLines(text);
-  const cfg = { profile: {}, overrides: {}, schedule: {}, liked: [], prefs: {}, customExercises: [] };
+  const cfg = { profile: {}, overrides: {}, schedule: {}, liked: [], prefs: {}, customExercises: [], exerciseTags: {} };
   let section = '';
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
@@ -855,6 +897,17 @@ function parseConfigMd(text) {
         const last = cfg.customExercises[cfg.customExercises.length - 1];
         if (last) last.description = raw.replace(/ \/ /g, '\n');
       }
+    } else if (section === 'exercise tags') {
+      if (key === 'id') {
+        const cleanId = raw.replace(/^#/, '').trim();
+        if (cleanId) cfg.exerciseTags[cleanId] = cfg.exerciseTags[cleanId] || [];
+      } else if (key === 'tags') {
+        const lastId = Object.keys(cfg.exerciseTags).pop();
+        if (lastId) for (const rawTag of raw.split(',')) {
+          const tag = sanitizeTagName(rawTag);
+          if (tag && !cfg.exerciseTags[lastId].some(item => item.toLowerCase() === tag.toLowerCase())) cfg.exerciseTags[lastId].push(tag);
+        }
+      }
     } else if (section === 'preferences') {
       if (key === 'accent') cfg.prefs.accent = ['red','blue','green','orange','purple','pink'].includes(raw) ? raw : 'red';
       else if (key === 'liked') cfg.liked = raw.split(',').map(s => s.trim().replace(/^#/, '')).filter(id => VALID_EXERCISE_IDS.has(id));
@@ -868,7 +921,8 @@ function parseConfigMd(text) {
       else if (key === 'pill-category') cfg.prefs.pillCategory = ['default','pin','hidden'].includes(raw) ? raw : 'default';
       else if (key === 'pill-target') cfg.prefs.pillTarget = ['default','pin','hidden'].includes(raw) ? raw : 'default';
       else if (key === 'pill-equipment') cfg.prefs.pillEquipment = ['default','pin','hidden'].includes(raw) ? raw : 'default';
-      else if (key === 'pill-toggles') cfg.prefs.pillToggles = ['routine','category','target','equipment'].includes(raw) ? raw : 'equipment';
+      else if (key === 'pill-tags') cfg.prefs.pillTags = ['default','pin','hidden'].includes(raw) ? raw : 'default';
+      else if (key === 'pill-toggles') cfg.prefs.pillToggles = ['routine','category','target','equipment','tags'].includes(raw) ? raw : 'equipment';
     }
   }
   return cfg;
@@ -1026,6 +1080,7 @@ function configToMd() {
   lines.push(`pill-category: ${state.pillRowModes.category}`);
   lines.push(`pill-target: ${state.pillRowModes.target}`);
   lines.push(`pill-equipment: ${state.pillRowModes.equipment}`);
+  lines.push(`pill-tags: ${state.pillRowModes.tags}`);
   lines.push(`pill-toggles: ${state.pillRowModes.toggles}`);
   lines.push('', '## Custom Exercises');
   for (const item of CUSTOM_EXERCISES) {
@@ -1035,6 +1090,13 @@ function configToMd() {
     lines.push(`  target: ${item.target||item.category}`);
     lines.push(`  equipment: ${item.equipment}`);
     if (item.description) lines.push(`  description: ${item.description.replace(/\n+/g, ' / ').trim()}`);
+  }
+  const tagEntries = Object.entries(state.exerciseTags).sort(([a], [b]) => String(a).localeCompare(String(b)));
+  lines.push('', '## Exercise Tags');
+  for (const [exerciseId, tags] of tagEntries) {
+    if (!Array.isArray(tags) || !tags.length) continue;
+    lines.push(`- id: ${exerciseId}`);
+    lines.push(`  tags: ${tags.join(', ')}`);
   }
   return lines.join('\n') + '\n';
 }
@@ -1097,7 +1159,21 @@ function applyConfigToState(cfg) {
     if (cfg.prefs.pillCategory) state.pillRowModes.category = cfg.prefs.pillCategory;
     if (cfg.prefs.pillTarget) state.pillRowModes.target = cfg.prefs.pillTarget;
     if (cfg.prefs.pillEquipment) state.pillRowModes.equipment = cfg.prefs.pillEquipment;
+    if (cfg.prefs.pillTags) state.pillRowModes.tags = cfg.prefs.pillTags;
     if (cfg.prefs.pillToggles) state.pillRowModes.toggles = cfg.prefs.pillToggles;
+  }
+  if (cfg.exerciseTags && Object.keys(cfg.exerciseTags).length) {
+    const incoming = sanitizeExerciseTags(cfg.exerciseTags);
+    const existing = state.exerciseTags;
+    const merged = { ...existing };
+    for (const [exerciseId, tags] of Object.entries(incoming)) {
+      const current = merged[exerciseId] || [];
+      const seen = new Set(current.map(t => t.toLowerCase()));
+      for (const tag of tags) if (!seen.has(tag.toLowerCase())) { current.push(tag); seen.add(tag.toLowerCase()); }
+      merged[exerciseId] = current.slice(0, TAG_LIMITS.perExercise);
+    }
+    state.exerciseTags = merged;
+    persistExerciseTags();
   }
   if (Array.isArray(cfg.customExercises) && cfg.customExercises.length) {
     let added = 0;
@@ -1296,10 +1372,26 @@ function applyVaultConfig(cfg) {
   syncSettingsControls();
 }
 
+function sanitizeExerciseTags(value){
+  const out={};
+  if(!value||typeof value!=='object'||Array.isArray(value))return out;
+  for(const[exerciseId,tags]of Object.entries(value)){
+    if(!tags||typeof tags==='string')continue;
+    const list=Array.isArray(tags)?tags:String(tags||'').split(',');
+    const cleaned=[];
+    for(const raw of list){
+      const tag=sanitizeTagName(raw);
+      if(tag&&!cleaned.some(item=>item.toLowerCase()===tag.toLowerCase()))cleaned.push(tag);
+    }
+    if(cleaned.length)out[String(exerciseId)]=cleaned.slice(0,TAG_LIMITS.perExercise);
+  }
+  return out;
+}
 function buildDefaultState() {
   state.saved = new Set();
   state.routines = [];
   state.schedule = { 0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' };
+  state.exerciseTags = sanitizeExerciseTags(readStorage(STORAGE_KEYS.tags, {}));
   state.progress = { logs: [], activeExerciseId: null, draft: { sets: DEFAULTS.sets, reps: DEFAULTS.reps, setWeights: [DEFAULTS.weight, DEFAULTS.weight, DEFAULTS.weight], setReps: [DEFAULTS.reps, DEFAULTS.reps, DEFAULTS.reps], setDurations: [], setDistances: [], notes: '' } };
   state.dashboard = { weekOffset: 0, monthOffset: 0, selectedDate: null, scope: state.progressPreferences.defaultView };
   state.activeRoutineId = null;
@@ -1657,7 +1749,57 @@ function closeAllCustomMenus(except=null){
   if(manageMenu&&!manageMenu.hidden&&manageMenu!==except){manageMenu.hidden=true;$('#btnCustomManageSelect')?.setAttribute('aria-expanded','false');}
   const ingredientMenu=$('#menuCustomIngredient');
   if(ingredientMenu&&!ingredientMenu.hidden&&ingredientMenu!==except){ingredientMenu.hidden=true;$('#btnCustomIngredientSelect')?.setAttribute('aria-expanded','false');}
+  hideTagMenu();
 }
+function renderModalTagMenu(){
+  const menu=$('#exerciseTagMenu'),list=$('#exerciseTagOptions');
+  if(!menu||!list)return;
+  const exercise=state.activeExercise;
+  if(!exercise){hideTagMenu();return;}
+  const assigned=new Set(exerciseTagsOf(exercise.id).map(tag=>tag.toLowerCase()));
+  const options=allTagNames().slice().sort((a,b)=>{
+    const aOn=assigned.has(a.toLowerCase())?0:1,bOn=assigned.has(b.toLowerCase())?0:1;
+    return aOn-bOn||a.localeCompare(b,undefined,{sensitivity:'base'});
+  });
+  list.innerHTML=options.length?options.map(tag=>`<button type="button" role="menuitemcheckbox" aria-checked="${String(assigned.has(tag.toLowerCase()))}" data-tag-option="${esc(tag)}">${esc(tag)}</button>`).join(''):'<span class="routine-menu-empty">No tags yet</span>';
+  const input=$('#exerciseTagInput');
+  if(input)input.value='';
+}
+function hideTagMenu(){
+  const menu=$('#exerciseTagMenu');
+  if(!menu||menu.hidden)return;
+  menu.hidden=true;
+  $('#modalTagAdd')?.setAttribute('aria-expanded','false');
+}
+$('#modalBadges').addEventListener('click',(event)=>{
+  if(!event.target.closest('#modalTagAdd'))return;
+  const menu=$('#exerciseTagMenu'),button=$('#modalTagAdd');
+  if(!menu||!button)return;
+  const willOpen=toggleMenu(menu,button,{except:()=>menu});
+  if(willOpen){
+    renderModalTagMenu();
+    positionMenuBetween(menu,button,{alignRight:true,minWidth:240});
+    requestAnimationFrame(()=>$('#exerciseTagInput')?.focus({preventScroll:true}));
+  }
+});
+$('#exerciseTagMenu').addEventListener('click',(event)=>{
+  const option=event.target.closest('[data-tag-option]');
+  if(!option)return;
+  const exercise=state.activeExercise;
+  if(!exercise)return;
+  const assigned=toggleExerciseTag(exercise.id,option.dataset.tagOption);
+  if(assigned===null)return;
+  renderModalTagMenu();
+  positionMenuBetween($('#exerciseTagMenu'),$('#modalTagAdd'),{alignRight:true,minWidth:240});
+  renderFilterPills();
+});
+$('#exerciseTagInput').addEventListener('keydown',(event)=>{
+  if(event.key!=='Enter')return;
+  event.preventDefault();
+  const exercise=state.activeExercise;
+  if(!exercise)return;
+  createExerciseTag(exercise.id,event.target.value);
+});
 function initCustomSelect(select){
   if(!select||select.dataset.customSelectReady)return;
   const parent=select.parentNode,wrapper=document.createElement('div');
@@ -1799,12 +1941,15 @@ function buildFilterContext(skipKey=null){
     idQuery,
     routine:state.routines.find(item=>item.id===state.routineFilter),
     loggedIds:state.loggedOnly?new Set(state.progress.logs.map(log=>log.exerciseId)):null,
+    tag:state.tag?state.tag.toLowerCase():'',
     skipKey
   };
 }
 function matchesFiltered(exercise,ctx){
-  const{query,idQuery,routine,loggedIds,skipKey}=ctx;
-  return (!query||(idQuery?exercise.id.startsWith(idQuery):[exercise.name,exercise.category,exercise.target,exercise.equipment,exercise.muscle_group].some(value=>String(value||'').toLowerCase().includes(query))))&&(skipKey==='category'||!state.category||exercise.category===state.category)&&(skipKey==='target'||!state.target||exercise.target===state.target)&&(skipKey==='equipment'||!state.equipment||exercise.equipment===state.equipment)&&(!state.savedOnly||state.saved.has(exercise.id))&&(!loggedIds||loggedIds.has(exercise.id))&&(!state.routineFilter||routine?.items.some(item=>item.exerciseId===exercise.id))
+  const{query,idQuery,routine,loggedIds,tag,skipKey}=ctx;
+  const matchesQuery=!query||(idQuery?exercise.id.startsWith(idQuery):[exercise.name,exercise.category,exercise.target,exercise.equipment,exercise.muscle_group,...exerciseTagsOf(exercise.id)].some(value=>String(value||'').toLowerCase().includes(query)));
+  const matchesTag=!tag||skipKey==='tags'||exerciseTagsOf(exercise.id).some(item=>item.toLowerCase()===tag);
+  return matchesQuery&&matchesTag&&(skipKey==='category'||!state.category||exercise.category===state.category)&&(skipKey==='target'||!state.target||exercise.target===state.target)&&(skipKey==='equipment'||!state.equipment||exercise.equipment===state.equipment)&&(!state.savedOnly||state.saved.has(exercise.id))&&(!loggedIds||loggedIds.has(exercise.id))&&(!state.routineFilter||routine?.items.some(item=>item.exerciseId===exercise.id))
 }
 function getFiltered(){const ctx=buildFilterContext();const routine=ctx.routine;const filtered=EXERCISES.filter(exercise=>matchesFiltered(exercise,ctx));if(state.sort==='custom'&&routine){const order=new Map(routine.items.map((item,index)=>[item.exerciseId,index]));filtered.sort((a,b)=>(order.get(a.id)??Number.MAX_SAFE_INTEGER)-(order.get(b.id)??Number.MAX_SAFE_INTEGER))}else filtered.sort((a,b)=>state.sort==='name-desc'?b.name.localeCompare(a.name):state.sort==='category'?(a.category||'').localeCompare(b.category||'')||a.name.localeCompare(b.name):state.sort==='id'?String(a.id).localeCompare(String(b.id)):a.name.localeCompare(b.name));return filtered}
 function latestLogFor(exerciseId){return[...state.progress.logs].filter(log=>log.exerciseId===exerciseId).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt)[0]||null}
@@ -1909,9 +2054,9 @@ function render(){
   renderFilterPills();
   syncCustomSelects();
 }
-function hasFilters(){return state.search||state.category||state.target||state.equipment||state.routineFilter||state.savedOnly||state.loggedOnly}
+function hasFilters(){return state.search||state.category||state.target||state.equipment||state.routineFilter||state.savedOnly||state.loggedOnly||state.tag}
 function resetFilters(){
-  Object.assign(state,{search:'',category:'',target:'',equipment:'',routineFilter:'',savedOnly:false,loggedOnly:false,sort:'name',limit:DEFAULTS.pageSize});
+  Object.assign(state,{search:'',category:'',target:'',equipment:'',routineFilter:'',savedOnly:false,loggedOnly:false,tag:'',sort:'name',limit:DEFAULTS.pageSize});
   $('#search').value='';
   syncRoutineSort();
   render();
@@ -2890,7 +3035,8 @@ function openModal(exercise, returnFocus = document.activeElement) {
     ...secondaries.map(sec => `<span class="modal-badge-pill"><span>${esc(title(sec))}</span></span>`)
   ].join('');
 
-  $('#modalBadges').innerHTML = badgesHtml;
+  $('#modalBadges').innerHTML = badgesHtml + `<button type="button" class="modal-badge-pill modal-tag-add" id="modalTagAdd" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-plus"/></svg></button>`;
+  hideTagMenu();
 
   const image = $('#modalImage');
   const fallback = image.nextElementSibling;
@@ -2942,6 +3088,7 @@ $('#modalExpandBtn')?.addEventListener('click', () => {
 });
 
 function closeModal(restoreFocus = true) {
+  hideTagMenu();
   document.querySelector('.modal-visual')?.classList.remove('media-tall');
   document.getElementById('modalExpandBtn')?.querySelector('use')?.setAttribute('href', '#icon-expand');
   const modal = $('#modalBackdrop .modal');
@@ -3243,8 +3390,9 @@ async function handleClearDataSubmit(event) {
   const clearFuelDiary = $('#chkClearFuelDiary').checked;
   const clearMeals = $('#chkClearMeals').checked;
   const clearCustomExercises = $('#chkClearCustomExercises').checked;
+  const clearTags = $('#chkClearTags').checked;
 
-  if (!clearLogs && !clearRoutines && !clearSaved && !clearFuelDiary && !clearMeals && !clearCustomExercises) {
+  if (!clearLogs && !clearRoutines && !clearSaved && !clearFuelDiary && !clearMeals && !clearCustomExercises && !clearTags) {
     return;
   }
 
@@ -3333,6 +3481,15 @@ async function handleClearDataSubmit(event) {
     cleared.push('custom exercises');
   }
 
+  if (clearTags) {
+    state.exerciseTags = {};
+    state.tag = '';
+    if (VAULT.loaded) { markDirty('config'); scheduleVaultSave('config'); }
+    persistExerciseTags();
+    renderFilterPills();
+    cleared.push('exercise tags');
+  }
+
   render();
   closeOverlay('clearData');
   toast(`Cleared: ${cleared.join(', ')}`);
@@ -3345,7 +3502,8 @@ function updateSelectAllClearCheckbox() {
     $('#chkClearSaved'),
     $('#chkClearFuelDiary'),
     $('#chkClearMeals'),
-    $('#chkClearCustomExercises')
+    $('#chkClearCustomExercises'),
+    $('#chkClearTags')
   ];
   const allChecked = checkboxes.every(cb => cb.checked);
   $('#chkClearAll').checked = allChecked;
@@ -3361,12 +3519,13 @@ $('#chkClearAll')?.addEventListener('change', (e) => {
     $('#chkClearSaved'),
     $('#chkClearFuelDiary'),
     $('#chkClearMeals'),
-    $('#chkClearCustomExercises')
+    $('#chkClearCustomExercises'),
+    $('#chkClearTags')
   ].forEach(cb => { cb.checked = isChecked; });
   updateSelectAllClearCheckbox();
 });
 
-['#chkClearLogs', '#chkClearRoutines', '#chkClearSaved', '#chkClearFuelDiary', '#chkClearMeals', '#chkClearCustomExercises'].forEach(id => {
+['#chkClearLogs', '#chkClearRoutines', '#chkClearSaved', '#chkClearFuelDiary', '#chkClearMeals', '#chkClearCustomExercises', '#chkClearTags'].forEach(id => {
   $(id)?.addEventListener('change', updateSelectAllClearCheckbox);
 });
 
@@ -4000,6 +4159,7 @@ const FILTER_PILL_GROUPS=[
   ['category',null,'All parts'],
   ['target',null,'All muscles'],
   ['equipment',null,'Any equipment'],
+  ['tags',null,'All tags'],
 ];
 function renderFilterPills(){
   const wrap=$('#filterPills');
@@ -4011,12 +4171,24 @@ function renderFilterPills(){
     const mode=state.pillRowModes?.[key]||'default';
     if(mode==='hidden'||(!expanded&&mode!=='pin')){row.hidden=true;row.innerHTML='';continue;}
     const current=key==='routine'?state.routineFilter:state[key];
-    const values=key==='routine'?orderedRoutines().filter(routine=>routine.items.length).map(routine=>[routine.id,routine.name]):uniqueValues(key).map(value=>[value,title(value)]);
+    const currentLower=key==='tags'?String(current||'').toLowerCase():null;
+    let values;
     let available=null;
+    if(key==='routine'){
+      values=orderedRoutines().filter(routine=>routine.items.length).map(routine=>[routine.id,routine.name]);
+    }else if(key==='tags'){
+      values=tagsIndex().map(entry=>[entry.label,`${entry.label} (${entry.exercises.size})`]);
+    }else{
+      values=uniqueValues(key).map(value=>[value,title(value)]);
+    }
     if(key!=='routine'){
       const pillCtx=buildFilterContext(key);
       available=new Set();
-      for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))available.add(exercise[key]);
+      if(key==='tags'){
+        for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))for(const tag of exerciseTagsOf(exercise.id))available.add(tag.toLowerCase());
+      }else{
+        for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))available.add(exercise[key]);
+      }
     }
     const chips=[];
     if(key===effectiveToggleHost()){
@@ -4030,8 +4202,11 @@ function renderFilterPills(){
       });
     }
     for(const[value,label]of values){
-      const isDisabled=!!available&&!available.has(value)&&current!==value;
-      chips.push({isDisabled,html:`<button type="button" class="pill" data-pill-group="${key}" data-value="${esc(value)}" aria-pressed="${String(current===value)}"${isDisabled?' disabled':''}>${esc(label)}</button>`});
+      const valueLower=String(value).toLowerCase();
+      const isEnabled=key==='tags'
+        ?!available||available.has(valueLower)||currentLower===valueLower
+        :!available||available.has(value)||current===value;
+      chips.push({isDisabled:!isEnabled,html:`<button type="button" class="pill" data-pill-group="${key}" data-value="${esc(value)}" aria-pressed="${String(current===value)}"${isEnabled?'':' disabled'}>${esc(label)}</button>`});
     }
     const toggleChips=chips.filter(chip=>chip.isToggle);
     const valueChips=chips.filter(chip=>!chip.isToggle);
@@ -4086,8 +4261,8 @@ $('#filterPills').addEventListener('click',(event)=>{
   state.limit=DEFAULTS.pageSize;
   render();
 });
-const PILL_ROW_LABELS={routine:'Routines',category:'Body parts',target:'Target muscles',equipment:'Equipments'};
-const PILL_ROW_KEYS=['routine','category','target','equipment'];
+const PILL_ROW_LABELS={routine:'Routines',category:'Body parts',target:'Target muscles',equipment:'Equipments',tags:'Tags'};
+const PILL_ROW_KEYS=['routine','category','target','equipment','tags'];
 function pillRowHosts(){return PILL_ROW_KEYS.filter(key=>state.pillRowModes[key]!=='hidden')}
 function effectiveToggleHost(){
   const hosts=pillRowHosts();
@@ -4570,6 +4745,7 @@ $('#progressClearDataBtn').addEventListener('click', () => {
   $('#chkClearFuelDiary').checked = false;
   $('#chkClearMeals').checked = false;
   $('#chkClearCustomExercises').checked = false;
+  $('#chkClearTags').checked = false;
   openOverlay('clearData');
 });
 $('#progressBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeProgress(); });

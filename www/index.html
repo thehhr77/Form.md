@@ -85,6 +85,7 @@
             <div class="pill-row" data-group="category"></div>
             <div class="pill-row" data-group="target"></div>
             <div class="pill-row" data-group="equipment"></div>
+            <div class="pill-row" data-group="tags"></div>
           </div>
         </header>
 
@@ -790,6 +791,14 @@
                 <button type="button" data-editor-mode="hidden" aria-pressed="false">Hidden</button>
               </div>
             </div>
+            <div class="settings-row">
+              <span class="settings-row-main"><span>Tags</span></span>
+              <div class="seg-control" data-editor-seg="tags" role="group" aria-label="Tags row visibility">
+                <button type="button" data-editor-mode="default" aria-pressed="false">Default</button>
+                <button type="button" data-editor-mode="pin" aria-pressed="false">Pin</button>
+                <button type="button" data-editor-mode="hidden" aria-pressed="false">Hidden</button>
+              </div>
+            </div>
             <button type="button" class="settings-row settings-row-action" data-editor-row="toggles">
               <span class="settings-row-main"><span>Liked / Logged buttons</span></span>
               <span class="settings-row-value" id="togglesHostValue"></span>
@@ -876,6 +885,7 @@
         <label class="check"><input type="checkbox" id="chkClearFuelDiary"><span>Nutrition food & hydration diary</span></label>
         <label class="check"><input type="checkbox" id="chkClearMeals"><span>Custom meal library</span></label>
         <label class="check"><input type="checkbox" id="chkClearCustomExercises"><span>Custom exercises</span></label>
+        <label class="check"><input type="checkbox" id="chkClearTags"><span>Exercise tags</span></label>
       </div>
       <div class="clear-data-actions">
         <button type="button" class="btn-clear-cancel">Cancel</button>
@@ -909,6 +919,10 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="routine-menu exercise-tag-menu" id="exerciseTagMenu" role="menu" aria-label="Exercise tags" hidden>
+  <div class="tag-menu-input-wrap"><input id="exerciseTagInput" type="text" maxlength="24" placeholder="New tag" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="New tag"></div>
+  <div id="exerciseTagOptions" class="exercise-tag-options"></div>
+</div>
 <script src="app.js" defer></script>
 </body>
 </html>
