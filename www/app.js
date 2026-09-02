@@ -675,7 +675,12 @@ function parseTrainingLogsMd(text) {
       const intervalMatch = dataLine.match(/(\d+)\s*intervals?/);
       log.intervals = vClampNum(intervalMatch ? intervalMatch[1] : 1, 1, LIMITS.sets, 1);
       const durMatch = dataLine.match(/([\d.,\s]+)\s*min/);
+      const durSecMatch = dataLine.match(/([\d.,\s]+)\s*sec/i);
       if (durMatch) log.setDurations = durMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.duration, 0)).filter(v => v > 0);
+      else if (durSecMatch) {
+        log.durUnit = 'sec';
+        log.setDurations = durSecMatch[1].split(',').map(s => Math.round(vClampNum(s.trim(), 0, LIMITS.duration * 60, 0) / 60 * 100) / 100).filter(v => v > 0);
+      }
       const distMatch = dataLine.match(/([\d.,\s]+)\s*km/);
       if (distMatch) log.setDistances = distMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.distance, 0)).filter(v => v > 0);
     } else {
@@ -926,10 +931,10 @@ function trainingLogsToMd(logs) {
       fields.push(`exercise: ${JSON.stringify(title(exercise?.name || 'Unknown exercise'))}`);
       fields.push(`exerciseId: #${log.exerciseId}`);
       if (isTimedCardioLog(log)) {
-        const toMinutes = (value) => Math.round(((Number(value) || 0) / (log.durUnit === 'sec' ? 60 : 1)) * 100) / 100;
-        const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map(toMinutes).filter((value) => value > 0);
+        const durUnit = log.durUnit === 'sec' || log.durUnit === 'min' ? log.durUnit : (isTimedCardioExercise(exercise) ? 'min' : 'sec');
+        const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map((value) => Math.round((Number(value) || 0) * 100) / 100).filter((value) => value > 0);
         fields.push(`int: ${Number(log.intervals) || durationList.length || 1}`);
-        if (durationList.length) fields.push(`dur(min): ${durationList.join(', ')}`);
+        if (durationList.length) fields.push(`dur(${durUnit}): ${durationList.join(', ')}`);
         const distanceList = (Array.isArray(log.setDistances) ? log.setDistances : []).map((value) => Math.round((Number(value) || 0) * 100) / 100).filter((value) => value > 0);
         if (distanceList.length) fields.push(`dist(km): ${distanceList.join(', ')}`);
       } else {
@@ -2995,7 +3000,7 @@ function progressLogToText(log){
     const intervals=Number(log.intervals)||Math.max(Array.isArray(log.setDurations)?log.setDurations.length:0,Array.isArray(log.setDistances)?log.setDistances.length:0,1);
     const durUnit=log.durUnit==='min'||log.durUnit==='sec'?log.durUnit:(isTimedCardioExercise(exercise)?'min':'sec');
     const durations=Array.isArray(log.setDurations)?log.setDurations:[];
-    const durationsText=durations.map(value=>{const num=Number(value)||0;const converted=durUnit==='sec'?Math.round(num*60*100)/100:Math.round(num*100)/100;return converted}).filter(value=>value>0).join(', ');
+    const durationsText=durations.map(value=>Math.round((Number(value)||0)*100)/100).filter(value=>value>0).join(', ');
     const distances=Array.isArray(log.setDistances)?log.setDistances:[];
     const distancesText=distances.map(value=>Math.round((Number(value)||0)*100)/100).filter(value=>value>0).join(', ');
     return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`int: ${intervals}`,...(durationsText?[`dur(${durUnit}): ${durationsText}`]:[]),...(distancesText?[`dist(km): ${distancesText}`]:[]),...(String(log.notes||'').replace(/\s+/g,' ').trim()?[`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`]:[]),`id: ${exportId}`].join('\n');
