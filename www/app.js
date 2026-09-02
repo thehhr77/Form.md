@@ -632,20 +632,37 @@ function parseTrainingLogsMd(text) {
   const lines = readVaultLines(text);
   const logs = [];
   let currentDate = null;
-  let byId = new Map();
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    const dateMatch = line.match(/^#{1,6}\s+(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) { currentDate = dateMatch[1]; continue; }
-    if (/^# Training Log/i.test(line)) continue;
-    if (line.startsWith('-')) line = line.slice(1).trim();
-    if (!currentDate || !line) continue;
-    if (/^water:/i.test(line)) continue;
-    if (/^###/i.test(line)) continue;
+  let block = null;
+  const toList = (rawValue) => rawValue ? rawValue.split(',').map(entry => entry.trim()).filter(Boolean) : undefined;
+  const flushBlock = () => {
+    if (!block) return;
+    const setDurations = toList(block.durationsRaw)?.map(entry => { const num = Number(entry); return Number.isFinite(num) ? Math.round((block.durationsUnit === 'sec' ? num / 60 : num) * 100) / 100 : 0; }) || toList(block.duration);
+    const repsList = toList(block.reps);
+    const normalized = normalizeImportedProgressLog({
+      exerciseId: block.exerciseId,
+      date: block.date || currentDate,
+      sets: block.sets,
+      reps: repsList ? repsList[0] : block.reps,
+      weight: block.weightsRaw ? undefined : block.weight,
+      setWeights: toList(block.weightsRaw) || toList(block.setweights),
+      setReps: toList(block.setreps) || repsList,
+      intervals: block.int ?? block.intervals ?? block.interval,
+      setDurations,
+      setDistances: toList(block.distancesRaw) || toList(block.distance),
+      duration: block.duration,
+      distance: block.distance,
+      durUnit: setDurations ? block.durationsUnit : undefined,
+      notes: block.notes,
+      id: block.id
+    }, logs.length);
+    if (normalized) logs.push(normalized);
+    block = null;
+  };
+  const parseLegacyLine = (line) => {
     const parts = line.split('|').map(p => p.trim());
-    if (parts.length < 2) continue;
+    if (parts.length < 2) return;
     const exerciseId = String(parts[0]).replace(/^#/, '').trim();
-    if (!VALID_EXERCISE_IDS.has(exerciseId)) continue;
+    if (!VALID_EXERCISE_IDS.has(exerciseId)) return;
     const idMatch = line.match(/id:\s*([^\s|]+)\s*$/i);
     const id = idMatch ? idMatch[1] : `log-${currentDate}-${logs.length}`;
     const notesMatch = line.match(/notes:\s*(.*?)(?:\s*\|\s*id:|$)/i);
@@ -661,7 +678,6 @@ function parseTrainingLogsMd(text) {
       if (durMatch) log.setDurations = durMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.duration, 0)).filter(v => v > 0);
       const distMatch = dataLine.match(/([\d.,\s]+)\s*km/);
       if (distMatch) log.setDistances = distMatch[1].split(',').map(s => vClampNum(s.trim(), 0, LIMITS.distance, 0)).filter(v => v > 0);
-      logs.push(log);
     } else {
       const setsMatch = dataLine.match(/(\d+)\s*sets?/);
       log.sets = vClampNum(setsMatch ? setsMatch[1] : 1, 1, LIMITS.sets, DEFAULTS.sets);
@@ -678,9 +694,46 @@ function parseTrainingLogsMd(text) {
         const nums = weightMatch.replace(/kg/i, '').trim();
         if (nums) log.setWeights = nums.split(',').map(s => { const v = Number(s.trim()); return Number.isFinite(v) && v > 0 ? Math.min(LIMITS.weight, v) : null; }).filter(v => v !== null);
       }
-      logs.push(log);
     }
+    const normalized = normalizeImportedProgressLog(log, logs.length);
+    if (normalized) logs.push(normalized);
+  };
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (/^#\s+Training Log/i.test(line)) continue;
+    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch) {
+      flushBlock();
+      const headingText = headingMatch[1].trim();
+      const isoHeading = headingText.match(/^(\d{4}-\d{2}-\d{2})/);
+      const vaultDate = parseVaultDateHeading(headingText);
+      currentDate = vaultDate || (isoHeading && isValidProgressDate(isoHeading[1]) ? isoHeading[1] : null);
+      continue;
+    }
+    if (line.startsWith('-')) line = line.slice(1).trim();
+    if (!currentDate || !line) continue;
+    if (/^water:/i.test(line)) continue;
+    const keyMatch = line.match(/^([A-Za-z]+)\s*(?:\(([^)]*)\))?\s*:\s*(.*)$/);
+    if (keyMatch && keyMatch[1].toLowerCase() === 'exercise') {
+      flushBlock();
+      block = { exercise: keyMatch[3].trim() };
+      continue;
+    }
+    if (block) {
+      if (!keyMatch) { flushBlock(); parseLegacyLine(line); continue; }
+      const key = keyMatch[1].toLowerCase(), unit = (keyMatch[2] || '').trim().toLowerCase();
+      if (key === 'dur') { block.durationsRaw = keyMatch[3].trim(); block.durationsUnit = unit === 'sec' ? 'sec' : 'min'; }
+      else if (key === 'dist') block.distancesRaw = keyMatch[3].trim();
+      else if (key === 'weight' && unit === 'kg') block.weightsRaw = keyMatch[3].trim();
+      else if (key === 'exerciseid') block.exerciseId = keyMatch[3].trim();
+      else if (key === 'id') block.id = keyMatch[3].trim();
+      else if (key === 'date') block.date = keyMatch[3].trim();
+      else block[key] = keyMatch[3].trim();
+      continue;
+    }
+    parseLegacyLine(line);
   }
+  flushBlock();
   return logs.filter(Boolean);
 }
 
@@ -689,33 +742,52 @@ function parseNutritionDiaryMd(text) {
   const history = {};
   let currentDate = null;
   let currentCategory = null;
+  let lastMeal = null;
+  const pushMeal = (meal) => {
+    if (!currentDate || !history[currentDate]) return;
+    const entry = normalizeMealLogEntry({ ...meal, category: meal.category || currentCategory || 'Snacks' });
+    if (!entry) return;
+    history[currentDate].meals.push(entry);
+    lastMeal = entry;
+  };
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim();
     if (/^# Nutrition Diary/i.test(line)) continue;
-    const dateMatch = line.match(/^#{1,6}\s+(\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      currentDate = dateMatch[1];
-      currentCategory = null;
-      if (!history[currentDate]) history[currentDate] = { water: 0, meals: [] };
+    const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headingMatch) {
+      lastMeal = null;
+      const headingText = headingMatch[1].trim();
+      const isoHeading = headingText.match(/^(\d{4}-\d{2}-\d{2})/);
+      const vaultDate = parseVaultDateHeading(headingText);
+      if (vaultDate || (isoHeading && isValidProgressDate(isoHeading[1]))) {
+        currentDate = vaultDate || isoHeading[1];
+        currentCategory = null;
+        if (!history[currentDate]) history[currentDate] = { water: 0, meals: [] };
+        continue;
+      }
+      if (currentDate && !isoHeading) currentCategory = title(headingText.replace(/^#+\s*/, ''));
       continue;
     }
     if (!currentDate) continue;
     if (line.startsWith('-')) line = line.slice(1).trim();
-    const catMatch = line.match(/^#{1,6}\s+(Breakfast|Lunch|Dinner|Snacks)/i);
-    if (catMatch) { currentCategory = catMatch[1]; continue; }
     const waterMatch = line.match(/^water:\s*(\d+(?:\.\d+)?)\s*ml/i);
     if (waterMatch) { history[currentDate].water = vClampNum(waterMatch[1], 0, 50000, 0); continue; }
-    const mealMatch = line.match(/^(.*?)\s*\|\s*(\d+)\s*kcal\s*\|\s*([\d.]+)\s*p\s*·\s*([\d.]+)\s*c\s*·\s*([\d.]+)\s*f(?:\s*\|\s*id:\s*(\d+))?$/i);
+    const idMatch = line.match(/^id\s*:\s*(\S+)\s*$/i);
+    if (idMatch) {
+      if (lastMeal) {
+        const num = Number(idMatch[1]);
+        lastMeal.id = Number.isFinite(num) && idMatch[1] === String(num) ? num : idMatch[1];
+      }
+      continue;
+    }
+    const boldMatch = line.match(/^(.*?)\s+(\d+)\s+kcal\s+·\s+\*\*([\d.]+)p\s+·\s+([\d.]+)c\s+·\s+([\d.]+)f\*\*\s*$/i);
+    if (boldMatch) {
+      pushMeal({ id: null, name: boldMatch[1].trim().slice(0, LIMITS.routineName), cals: boldMatch[2], p: boldMatch[3], c: boldMatch[4], f: boldMatch[5] });
+      continue;
+    }
+    const mealMatch = line.match(/^(.*?)\s*\|\s*(\d+)\s*kcal\s*\|\s*([\d.]+)\s*p\s*·\s*([\d.]+)\s*c\s*·\s*([\d.]+)\s*f(?:\s*\|\s*id:\s*(\S+))?$/i);
     if (mealMatch) {
-      history[currentDate].meals.push({
-        id: mealMatch[6] ? String(mealMatch[6]) : String(Date.now() + history[currentDate].meals.length),
-        name: mealMatch[1].trim().slice(0, LIMITS.routineName),
-        cals: vClampNum(mealMatch[2], 0, 50000, 0),
-        p: Math.round(vClampNum(mealMatch[3], 0, 999, 0) * 10) / 10,
-        c: Math.round(vClampNum(mealMatch[4], 0, 999, 0) * 10) / 10,
-        f: Math.round(vClampNum(mealMatch[5] ? mealMatch[5] : 0, 0, 999, 0) * 10) / 10,
-        category: currentCategory || 'Snacks'
-      });
+      pushMeal({ id: mealMatch[6] ? String(mealMatch[6]) : null, name: mealMatch[1].trim().slice(0, LIMITS.routineName), cals: mealMatch[2], p: mealMatch[3], c: mealMatch[4], f: mealMatch[5] });
     }
   }
   return history;
@@ -795,6 +867,19 @@ function parseConfigMd(text) {
 /* ===================== SERIALIZERS ===================== */
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function vaultDateHeading(dateKey){
+  const date = parseLocalDate(dateKey);
+  return Number.isNaN(date.getTime()) ? String(dateKey) : `${WEEKDAY_NAMES[date.getDay()]}, ${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+function parseVaultDateHeading(text){
+  const match = String(text || '').trim().match(/^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})$/i);
+  if (!match) return null;
+  const month = MONTH_NAMES.findIndex(name => name.toLowerCase() === match[1].toLowerCase());
+  if (month < 0) return null;
+  const dateKey = localDateValue(new Date(Number(match[3]), month, Number(match[2]), 12));
+  return isValidProgressDate(dateKey) ? dateKey : null;
+}
 
 function routinesToMd(routines) {
   const lines = ['# Routines', ''];
@@ -834,26 +919,32 @@ function trainingLogsToMd(logs) {
   }
   const dates = Object.keys(byDate).sort();
   for (const date of dates) {
-    lines.push(`## ${date}`);
+    lines.push(`## ${vaultDateHeading(date)}`);
     for (const log of byDate[date]) {
+      const fields = [];
+      const exercise = getExercise(log.exerciseId);
+      fields.push(`exercise: ${JSON.stringify(title(exercise?.name || 'Unknown exercise'))}`);
+      fields.push(`exerciseId: #${log.exerciseId}`);
       if (isTimedCardioLog(log)) {
-        const totals = timedLogTotals(log);
         const toMinutes = (value) => Math.round(((Number(value) || 0) / (log.durUnit === 'sec' ? 60 : 1)) * 100) / 100;
         const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map(toMinutes).filter((value) => value > 0);
-        const durStr = durationList.length ? ` ${durationList.join(', ')} min` : (totals.duration > 0 ? ` ${toMinutes(totals.duration)} min` : '');
-        const distList = (Array.isArray(log.setDistances) ? log.setDistances : []).map((value) => Math.round((Number(value) || 0) * 10) / 10).filter((value) => value > 0);
-        const distStr = distList.length ? ` ${distList.join(', ')} km` : (totals.distance > 0 ? ` ${totals.distance} km` : '');
-        const notesStr = log.notes ? ` | notes: ${sanitize(log.notes)}` : '';
-        lines.push(`- ${log.exerciseId} | ${totals.intervals} intervals |${durStr}${distStr ? ' |' + distStr : ''}${notesStr} | id: ${log.id}`);
+        fields.push(`int: ${Number(log.intervals) || durationList.length || 1}`);
+        if (durationList.length) fields.push(`dur(min): ${durationList.join(', ')}`);
+        const distanceList = (Array.isArray(log.setDistances) ? log.setDistances : []).map((value) => Math.round((Number(value) || 0) * 100) / 100).filter((value) => value > 0);
+        if (distanceList.length) fields.push(`dist(km): ${distanceList.join(', ')}`);
       } else {
-        const setsStr = `${log.sets} sets`;
-        const repsStr = Array.isArray(log.setReps) && log.setReps.length ? ` ${log.setReps.join(', ')} reps` : ` ${log.reps} reps`;
-        const weightStr = Array.isArray(log.setWeights) && log.setWeights.length ? ` ${log.setWeights.join(', ')} kg` : (Number(log.weight) > 0 ? ` ${log.weight} kg` : '');
-        const notesStr = log.notes ? ` | notes: ${sanitize(log.notes)}` : '';
-        lines.push(`- ${log.exerciseId} |${setsStr} |${repsStr}${weightStr ? ' |' + weightStr : ''}${notesStr} | id: ${log.id}`);
+        fields.push(`sets: ${clamp(Math.round(Number(log.sets) || 1), 1, LIMITS.sets)}`);
+        const weightList = (Array.isArray(log.setWeights) ? log.setWeights : []).map((value) => Math.round((Number(value) || 0) * 10) / 10).filter((value) => value > 0);
+        if (weightList.length) fields.push(`weight(kg): ${weightList.join(', ')}`);
+        const repsList = (Array.isArray(log.setReps) && log.setReps.length ? log.setReps : [log.reps]).map((value) => clamp(Math.round(Number(value)) || 1, 1, LIMITS.reps));
+        fields.push(`reps: ${repsList.join(', ')}`);
       }
+      const notesText = sanitize(log.notes || '');
+      if (notesText) fields.push(`notes: ${notesText}`);
+      fields.push(`id: ${log.id}`);
+      lines.push(fields.map((field) => `- ${field}`).join('\n'));
+      lines.push('');
     }
-    lines.push('');
   }
   return lines.join('\n').trim() + '\n';
 }
@@ -864,15 +955,20 @@ function nutritionDiaryToMd(history) {
   for (const date of dates) {
     const day = history[date];
     if (!day) continue;
-    lines.push(`## ${date}`);
-    if (day.water && day.water > 0) lines.push(`water: ${day.water} ml`);
-    const cats = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+    const water = Number(day.water) > 0 ? Math.round(Number(day.water)) : 0;
+    const meals = day.meals || [];
+    if (!water && !meals.length) continue;
+    lines.push(`## ${vaultDateHeading(date)}`);
+    if (water) lines.push(`water: ${water} ml`);
+    const cats = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'];
     for (const cat of cats) {
-      const meals = (day.meals || []).filter(m => (m.category || 'Snacks') === cat);
-      if (!meals.length) continue;
+      const catMeals = meals.filter(m => (m.category || 'Snacks') === cat);
+      if (!catMeals.length) continue;
       lines.push(`### ${cat}`);
-      for (const m of meals) {
-        lines.push(`- ${m.name} | ${m.cals} kcal | ${m.p}p · ${m.c}c · ${m.f}f | id: ${m.id}`);
+      for (const m of catMeals) {
+        const name = String(m.name || '').replace(/\s+/g, ' ').trim();
+        lines.push(`- ${name} ${Math.round(Number(m.cals) || 0)} kcal · **${Math.round((Number(m.p) || 0) * 10) / 10}p · ${Math.round((Number(m.c) || 0) * 10) / 10}c · ${Math.round((Number(m.f) || 0) * 10) / 10}f**`);
+        lines.push(`\t- id: ${m.id}`);
       }
     }
     lines.push('');
@@ -2902,11 +2998,11 @@ function progressLogToText(log){
     const durationsText=durations.map(value=>{const num=Number(value)||0;const converted=durUnit==='sec'?Math.round(num*60*100)/100:Math.round(num*100)/100;return converted}).filter(value=>value>0).join(', ');
     const distances=Array.isArray(log.setDistances)?log.setDistances:[];
     const distancesText=distances.map(value=>Math.round((Number(value)||0)*100)/100).filter(value=>value>0).join(', ');
-    return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`int: ${intervals}`,...(durationsText?[`dur(${durUnit}): ${durationsText}`]:[]),...(distancesText?[`dist(km): ${distancesText}`]:[]),`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${exportId}`].join('\n');
+    return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`int: ${intervals}`,...(durationsText?[`dur(${durUnit}): ${durationsText}`]:[]),...(distancesText?[`dist(km): ${distancesText}`]:[]),...(String(log.notes||'').replace(/\s+/g,' ').trim()?[`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`]:[]),`id: ${exportId}`].join('\n');
   }
   const setWeights=(Array.isArray(log.setWeights)?log.setWeights:[]).map(value=>Math.round((Number(value)||0)*10)/10).filter(value=>value>0);
   const setReps=(Array.isArray(log.setReps)&&log.setReps.length?log.setReps:[log.reps]).map(value=>clamp(Math.round(Number(value))||1,1,LIMITS.reps));
-  return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`sets: ${log.sets}`,...(setWeights.length?[`weight(kg): ${setWeights.join(', ')}`]:[]),`reps: ${setReps.join(', ')}`,`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`,`id: ${exportId}`].join('\n');
+  return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`sets: ${log.sets}`,...(setWeights.length?[`weight(kg): ${setWeights.join(', ')}`]:[]),`reps: ${setReps.join(', ')}`,...(String(log.notes||'').replace(/\s+/g,' ').trim()?[`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`]:[]),`id: ${exportId}`].join('\n');
 }
 function progressLogsToText(logs=state.progress.logs){return logs.map(progressLogToText).join('\n\n')}
 function parseProgressLogText(text){
