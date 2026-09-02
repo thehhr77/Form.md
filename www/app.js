@@ -132,7 +132,13 @@ function persistExerciseTags(){writeStorage(STORAGE_KEYS.tags,state.exerciseTags
 function toggleExerciseTag(exerciseId,tag){
   const id=String(exerciseId),tags=exerciseTagsOf(id),key=tag.toLowerCase();
   const index=tags.findIndex(item=>item.toLowerCase()===key);
-  if(index>=0){tags.splice(index,1);if(!tags.length)delete state.exerciseTags[id];persistExerciseTags();return false;}
+  if(index>=0){
+    tags.splice(index,1);
+    if(!tags.length)delete state.exerciseTags[id];
+    if(state.tags&&state.tags.toLowerCase()===key)state.tags='';
+    persistExerciseTags();
+    return false;
+  }
   if(tags.length>=TAG_LIMITS.perExercise){toast(`Max ${TAG_LIMITS.perExercise} tags per exercise`);return null;}
   const assigned=new Set(Object.values(state.exerciseTags).flat().map(item=>item.toLowerCase()));
   if(!assigned.has(key)&&assigned.size>=TAG_LIMITS.distinct){toast(`Max ${TAG_LIMITS.distinct} distinct tags`);return null;}
@@ -144,7 +150,13 @@ function createExerciseTag(exerciseId,value){
   const tags=exerciseTagsOf(exerciseId);
   if(tags.some(item=>item.toLowerCase()===tag.toLowerCase())){toast('Tag already assigned');return null;}
   const result=toggleExerciseTag(exerciseId,tag);
-  if(result!==null){renderModalBadges(exercise);renderModalTagMenu();renderFilterPills();}
+  if(result!==null){
+    const exercise=getExercise(exerciseId);
+    if(exercise)renderModalBadges(exercise);
+    renderModalTagMenu();
+    renderFilterPills();
+    render();
+  }
   return result;
 }
 function customExercisesToText(){
@@ -1801,6 +1813,7 @@ $('#exerciseTagMenu').addEventListener('click',(event)=>{
   positionMenuBetween($('#exerciseTagMenu'),$('#modalTagButton'),{alignRight:true,minWidth:240});
   $('#modalTagButton')?.setAttribute('aria-expanded','true');
   renderFilterPills();
+  render();
 });
 $('#exerciseTagInput').addEventListener('keydown',(event)=>{
   if(event.key!=='Enter'&&event.keyCode!==13)return;
@@ -5899,13 +5912,6 @@ function renderBodySection() {
 
   document.getElementById('bmiValDisplay').innerText = bmi;
   document.getElementById('weightValDisplay').innerText = p.currentWeightKg.toFixed(1) + ' kg';
-
-  const badge = document.getElementById('bmiBadge');
-  badge.className = 'bmi-badge ';
-  if (bmi < 18.5) { badge.classList.add('bmi-under'); badge.innerText = 'Underweight'; }
-  else if (bmi < 25) { badge.classList.add('bmi-normal'); badge.innerText = 'Normal'; }
-  else if (bmi < 30) { badge.classList.add('bmi-over'); badge.innerText = 'Overweight'; }
-  else { badge.classList.add('bmi-obese'); badge.innerText = 'Obese'; }
 
   document.getElementById('lblStartWeight').innerText = p.startWeightKg.toFixed(1) + ' kg';
   document.getElementById('lblGoalWeight').innerText = p.goalWeightKg.toFixed(1) + ' kg';

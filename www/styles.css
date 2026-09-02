@@ -127,8 +127,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 }
 .routine-order,
 .progress-entry-date,
-.edit-pill,
-.bmi-badge { border-radius: var(--radius-chip); transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+.edit-pill { border-radius: var(--radius-chip); transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
 
 .mobile-nav-button {
   min-height: var(--control-size);
@@ -1203,21 +1202,6 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 }
 .edit-pill .icon { width: 11px; height: 11px; stroke-width: 2.2; }
 
-/* BMI badges */
-.bmi-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  font-size: 9px;
-  font-weight: var(--weight-semibold);
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-.bmi-normal { background: rgba(114, 188, 143, .18); color: var(--positive); border: 1px solid var(--positive); }
-.bmi-under { background: rgba(136, 169, 195, .18); color: var(--carbs); border: 1px solid var(--carbs); border-color: var(--carbs); }
-.bmi-over { background: rgba(212, 163, 115, .18); color: var(--fats); border: 1px solid var(--fats); }
-.bmi-obese { background: rgba(233, 115, 102, .18); color: var(--danger); border: 1px solid var(--danger); }
-
 /* Date stepper */
 .fuel-daily-head-right { display: flex; justify-content: flex-end; }
 .date-stepper { display: flex; align-items: center; justify-self: center; gap: 0; background: transparent; border: 0; padding: 0; }
@@ -2199,6 +2183,5 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   .track i,
   .circle-meter,
   .aw-check,
-  .seg-control button,
-  .bmi-badge { transition: none; }
+  .seg-control button { transition: none; }
 }
