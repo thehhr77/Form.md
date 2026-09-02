@@ -1779,8 +1779,7 @@ function submitExerciseTagInput(){
   createExerciseTag(exercise.id,input.value);
   input.focus({preventScroll:true});
 }
-$('#modalBadges').addEventListener('click',(event)=>{
-  if(!event.target.closest('#modalTagButton'))return;
+$('#modalTagButton').addEventListener('click',(event)=>{
   const menu=$('#exerciseTagMenu'),button=$('#modalTagButton');
   if(!menu||!button)return;
   const willOpen=toggleMenu(menu,button,{except:()=>menu});
