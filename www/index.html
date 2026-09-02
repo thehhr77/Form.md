@@ -26,6 +26,8 @@
         }
       } catch (e) {}
     })();
+    document.documentElement.setAttribute('data-boot', 'loading');
+    setTimeout(function(){document.documentElement.removeAttribute('data-boot')},2500);
   </script>
   <link rel="stylesheet" href="styles.css">
 </head>

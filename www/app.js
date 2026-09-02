@@ -224,8 +224,27 @@ const VALID_EXERCISE_IDS=new Set(EXERCISES.map(exercise=>String(exercise.id)));
 const getExercise=id=>EXERCISE_BY_ID.get(String(id))||null;
 
 function safeParse(raw,fallback,check){try{const value=JSON.parse(raw);return check&&!check(value)?fallback:value??fallback}catch{return fallback}}
+const VAULT_DATA_KEYS=Object.freeze(new Set([STORAGE_KEYS.saved,STORAGE_KEYS.legacySaved,STORAGE_KEYS.routines,STORAGE_KEYS.schedule,STORAGE_KEYS.progress,STORAGE_KEYS.progressPreferences,STORAGE_KEYS.workoutReminder,STORAGE_KEYS.restPrefs,STORAGE_KEYS.pillRowModes,STORAGE_KEYS.customExercises,STORAGE_KEYS.fuel,STORAGE_KEYS.legacyFuel]));
 function readStorage(key,fallback,check){try{return safeParse(localStorage.getItem(key),fallback,check)}catch{return fallback}}
-function writeStorage(key,value){try{const serialized=JSON.stringify(value);if(localStorage.getItem(key)!==serialized)localStorage.setItem(key,serialized)}catch(error){console.warn(`Unable to save ${key}`,error)}}
+function writeStorage(key,value){
+  if(VAULT_DATA_KEYS.has(key)&&VAULT.loaded)return;
+  try{const serialized=JSON.stringify(value);if(localStorage.getItem(key)!==serialized)localStorage.setItem(key,serialized)}catch(error){console.warn(`Unable to save ${key}`,error)}
+}
+function purgeVaultDataKeys(){
+  const keep=new Set([STORAGE_KEYS.accent,'form-vault-folder',STORAGE_KEYS.activeWorkout,STORAGE_KEYS.awBannerDismissed]);
+  const native=FS_ADAPTER.isNative;
+  for(const key of Object.keys(localStorage)){
+    if(keep.has(key))continue;
+    if(VAULT_DATA_KEYS.has(key)||(native&&key.startsWith('vault_')))localStorage.removeItem(key);
+  }
+}
+let bootGateDone=false;
+function finishBootGate(){
+  if(bootGateDone)return;
+  bootGateDone=true;
+  try{document.documentElement.removeAttribute('data-boot')}catch{}
+  setTimeout(()=>{try{document.documentElement.removeAttribute('data-boot')}catch{}},0);
+}
 function clamp(value,minimum,maximum){return Math.min(maximum,Math.max(minimum,Number(value)||minimum))}
 function localDateValue(date=new Date()){const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,'0'),day=String(date.getDate()).padStart(2,'0');return `${year}-${month}-${day}`;}
 function isValidProgressDate(value){const normalized=String(value||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(normalized))return false;const date=new Date(`${normalized}T12:00:00`);return !Number.isNaN(date.getTime())&&localDateValue(date)===normalized}
@@ -290,7 +309,7 @@ function sanitizeAwRows(value,fallbackReps){
 }
 function loadActiveWorkout(){
   const raw=readStorage(STORAGE_KEYS.activeWorkout,null);
-  const routine=raw&&typeof raw==='object'?storedRoutines.find(routine=>routine.id===raw.routineId):null;
+  const routine=raw&&typeof raw==='object'?state.routines.find(routine=>routine.id===raw.routineId):null;
   if(!raw||typeof raw!=='object'||raw.date!==localDateValue()||!routine){
     try{localStorage.removeItem(STORAGE_KEYS.activeWorkout)}catch{}
     return null;
@@ -411,7 +430,7 @@ const state={
   saved:new Set(storedSaved),
   routines:storedRoutines,
   schedule:loadScheduleState(),
-  activeWorkout:loadActiveWorkout(),
+  activeWorkout:null,
   activeRoutineId:null,
   routineCreating:false,
   routineDraftName:'',
@@ -420,7 +439,7 @@ const state={
   progressPreferences:storedProgressPrefs,
   showWorkoutReminder:readStorage(STORAGE_KEYS.workoutReminder,true)!==false,
   restPrefs:storedRestPrefs,
-  progress:{logs:loadProgressLogs(),activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:'',mode:'reps',showWeight:false,durationUnit:'min'}},
+  progress:{logs:[],activeExerciseId:null,draft:{sets:DEFAULTS.sets,reps:DEFAULTS.reps,setWeights:[DEFAULTS.weight,DEFAULTS.weight,DEFAULTS.weight],setReps:[DEFAULTS.reps,DEFAULTS.reps,DEFAULTS.reps],setDurations:[],setDistances:[],notes:'',mode:'reps',showWeight:false,durationUnit:'min'}},
   dashboard:{weekOffset:0,monthOffset:0,selectedDate:null,scope:storedProgressPrefs.defaultView},
   overlay:{active:null,returnFocus:{}},
   mobileTab:'workout',
@@ -806,6 +825,7 @@ function mealsToMd(foodDb) {
 
 function trainingLogsToMd(logs) {
   const lines = ['# Training Log', ''];
+  const sanitize = (value) => String(value).replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
   const byDate = {};
   for (const log of logs) {
     if (!isValidProgressDate(log.date)) continue;
@@ -818,15 +838,18 @@ function trainingLogsToMd(logs) {
     for (const log of byDate[date]) {
       if (isTimedCardioLog(log)) {
         const totals = timedLogTotals(log);
-        const durStr = Array.isArray(log.setDurations) && log.setDurations.length ? ` ${log.setDurations.join(', ')} min` : ` ${totals.duration} min`;
-        const distStr = Array.isArray(log.setDurations) && log.setDurations.length ? ` ${log.setDistances.join(', ')} km` : (totals.distance ? ` ${totals.distance} km` : '');
-        const notesStr = log.notes ? ` | notes: ${log.notes}` : '';
+        const toMinutes = (value) => Math.round(((Number(value) || 0) / (log.durUnit === 'sec' ? 60 : 1)) * 100) / 100;
+        const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map(toMinutes).filter((value) => value > 0);
+        const durStr = durationList.length ? ` ${durationList.join(', ')} min` : (totals.duration > 0 ? ` ${toMinutes(totals.duration)} min` : '');
+        const distList = (Array.isArray(log.setDistances) ? log.setDistances : []).map((value) => Math.round((Number(value) || 0) * 10) / 10).filter((value) => value > 0);
+        const distStr = distList.length ? ` ${distList.join(', ')} km` : (totals.distance > 0 ? ` ${totals.distance} km` : '');
+        const notesStr = log.notes ? ` | notes: ${sanitize(log.notes)}` : '';
         lines.push(`- ${log.exerciseId} | ${totals.intervals} intervals |${durStr}${distStr ? ' |' + distStr : ''}${notesStr} | id: ${log.id}`);
       } else {
         const setsStr = `${log.sets} sets`;
         const repsStr = Array.isArray(log.setReps) && log.setReps.length ? ` ${log.setReps.join(', ')} reps` : ` ${log.reps} reps`;
         const weightStr = Array.isArray(log.setWeights) && log.setWeights.length ? ` ${log.setWeights.join(', ')} kg` : (Number(log.weight) > 0 ? ` ${log.weight} kg` : '');
-        const notesStr = log.notes ? ` | notes: ${log.notes}` : '';
+        const notesStr = log.notes ? ` | notes: ${sanitize(log.notes)}` : '';
         lines.push(`- ${log.exerciseId} |${setsStr} |${repsStr}${weightStr ? ' |' + weightStr : ''}${notesStr} | id: ${log.id}`);
       }
     }
@@ -987,6 +1010,7 @@ function applyConfigToState(cfg) {
       render();
       renderFilterPills();
       renderRoutineDrawer();
+      updateExerciseCount();
     }
   }
 }
@@ -1205,7 +1229,7 @@ function migrateLegacyData() {
   const legacyRestPrefs = normalizeRestPrefs(readStorage(STORAGE_KEYS.restPrefs, { enabled: false, betweenSets: 60, betweenExercise: 90 }));
   const legacyReminder = readStorage(STORAGE_KEYS.workoutReminder, true) !== false;
   const legacyAccent = normalizeAccent(readStorage(STORAGE_KEYS.accent, 'red'));
-  const hasLegacy = legacyRoutines.length || legacyLogs.length || legacySaved.length || (legacyFuel && legacyFuel.history && Object.keys(legacyFuel.history).length) || (legacyFuel && legacyFuel.foodDb && legacyFuel.foodDb.length > 1);
+  const hasLegacy = legacyRoutines.length || legacyLogs.length || legacySaved.length || CUSTOM_EXERCISES.length || (legacyFuel && legacyFuel.history && Object.keys(legacyFuel.history).length) || (legacyFuel && legacyFuel.foodDb && legacyFuel.foodDb.length > 1);
   if (!hasLegacy) return null;
   const routines = legacyRoutines;
   const logs = legacyLogs;
@@ -1223,6 +1247,7 @@ function migrateLegacyData() {
   for (let i = 0; i < 7; i++) {
     if (schedule[i] && routines.find(r => r.id === schedule[i])) config.schedule[i] = routines.find(r => r.id === schedule[i]).name;
   }
+  if (CUSTOM_EXERCISES.length) config.customExercises = CUSTOM_EXERCISES.map(({ name, id, category, target, equipment, description }) => ({ name, id, category, target, equipment, description }));
   return { routines, logs, foodDb, history, config };
 }
 
@@ -1276,17 +1301,23 @@ async function loadVault(folder, options) {
     };
     vaultResetDirty();
     VAULT.loaded = true;
+    state.activeWorkout = loadActiveWorkout();
+    purgeVaultDataKeys();
     try { localStorage.setItem(VAULT_FOLDER_KEY, VAULT.folder); } catch {}
     updateVaultUI();
     renderEverything();
+    finishBootGate();
     if (!silent) toast(allMissing ? `Created new vault in Documents/${VAULT.folder}` : `Vault loaded from Documents/${VAULT.folder}`);
   } catch (err) {
     console.error('Vault load error:', err);
+    finishBootGate();
     if (!silent) toast('Vault load failed');
   }
 }
 
 function syncScheduleState() { writeStorage(STORAGE_KEYS.schedule, state.schedule); }
+
+function updateExerciseCount(){const el=$('#settingsExerciseCount');if(el)el.textContent=EXERCISES.length.toLocaleString()}
 
 async function switchVault(folder) {
   const clean = sanitizeVaultFolder(folder);
@@ -1326,6 +1357,7 @@ function renderEverything() {
   renderPillRowEditor();
   renderPrefSegs();
   syncSettingsControls();
+  updateExerciseCount();
   render();
   renderRoutineDrawer();
   renderMealManagerDrawer();

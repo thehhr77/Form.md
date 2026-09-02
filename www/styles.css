@@ -38,6 +38,10 @@
   --frame-inset: max(0px, (100vw - var(--frame-max)) / 2);
 }
 
+html[data-boot="loading"] body { visibility: hidden; }
+html[data-boot="loading"] body::after { content: ""; visibility: visible; position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: bootSpin .7s linear infinite; }
+@keyframes bootSpin { to { transform: rotate(360deg); } }
+
 * {
   box-sizing: border-box;
   scrollbar-width: none;
