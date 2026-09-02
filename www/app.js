@@ -160,6 +160,15 @@ async function copyCustomExercises(){
   if(await copyTextToClipboard(text)){toast('Custom exercises copied');return;}
   showCustomExercisePastePanel(text);
 }
+function deleteProgressLogsForExercises(exerciseIds){
+  const idSet=exerciseIds instanceof Set?exerciseIds:new Set(exerciseIds);
+  const removedLogIds=state.progress.logs.filter(log=>idSet.has(log.exerciseId)).map(log=>log.id);
+  if(removedLogIds.length){
+    if(VAULT.loaded)removedLogIds.forEach(id=>markDeleted('trainingLogs',id));
+    state.progress.logs=state.progress.logs.filter(log=>!removedLogIds.includes(log.id));
+    persistProgress();
+  }
+}
 async function importCustomExercises(mode='add'){
   let parsed;
   try{
@@ -192,12 +201,7 @@ async function importCustomExercises(mode='add'){
   const affected=state.routines.filter(routine=>routine.items.some(item=>removedIds.has(item.exerciseId)));
   affected.forEach(routine=>{routine.items=routine.items.filter(item=>!removedIds.has(item.exerciseId))});
   if(affected.length)saveRoutines();
-  const removedLogIds=state.progress.logs.filter(log=>removedIds.has(log.exerciseId)).map(log=>log.id);
-  if(removedLogIds.length){
-    if(VAULT.loaded)removedLogIds.forEach(id=>markDeleted('trainingLogs',id));
-    state.progress.logs=state.progress.logs.filter(log=>!removedLogIds.includes(log.id));
-    persistProgress();
-  }
+  deleteProgressLogsForExercises(removedIds);
   mergeCustomExercisesImported(parsed);
   persistCustomExercises();
   closeCustomExercisePaste();
@@ -295,7 +299,7 @@ function loadScheduleState() {
   }
   return result;
 }
-function saveScheduleState() {
+function syncScheduleState() {
   writeStorage(STORAGE_KEYS.schedule, state.schedule);
   if (VAULT.loaded) saveConfigToVault();
 }
@@ -590,6 +594,7 @@ function parseRoutinesMd(text) {
   return routines.filter(r => r.items.length > 0);
 }
 
+const PER100G_LINE=/^Per100g\s+(\d+(?:\.\d+)?)\s*cal\s+(\d+(?:\.\d+)?)\s*pro\s+(\d+(?:\.\d+)?)\s*carb\s+(\d+(?:\.\d+)?)\s*fat$/i;
 function parseMealsMd(text) {
   const lines = readVaultLines(text);
   const meals = [];
@@ -616,7 +621,7 @@ function parseMealsMd(text) {
       if (cleanId && !meals.some(m => m.id === cleanId)) meal.id = cleanId;
       continue;
     }
-    const macroMatch = line.match(/^Per100g\s+(\d+(?:\.\d+)?)\s*cal\s+(\d+(?:\.\d+)?)\s*pro\s+(\d+(?:\.\d+)?)\s*carb\s+(\d+(?:\.\d+)?)\s*fat$/i);
+    const macroMatch = line.match(PER100G_LINE);
     if (macroMatch && meal) {
       meal.cals100 = Math.round(Number(macroMatch[1]));
       meal.p100 = vClampNum(macroMatch[2], 0, 999, 0);
@@ -1119,7 +1124,7 @@ function applyConfigToState(cfg) {
 function mergeConfigFromVault(fileText) {
   if (!fileText) return;
   applyConfigToState(parseConfigMd(fileText));
-  saveScheduleState();
+  syncScheduleState();
   writeStorage(STORAGE_KEYS.accent, activeAccent);
   writeStorage(STORAGE_KEYS.progressPreferences, state.progressPreferences);
   writeStorage(STORAGE_KEYS.workoutReminder, state.showWorkoutReminder);
@@ -1150,7 +1155,7 @@ function mergeRoutinesFromVault(fileText) {
   for (let i = 0; i < 7; i++) {
     if (state.schedule[i] && !state.routines.find(r => r.id === state.schedule[i])) state.schedule[i] = '';
   }
-  saveScheduleState();
+  syncScheduleState();
 }
 
 /* --- meals merge --- */
@@ -1415,8 +1420,6 @@ async function loadVault(folder, options) {
     if (!silent) toast('Vault load failed');
   }
 }
-
-function syncScheduleState() { writeStorage(STORAGE_KEYS.schedule, state.schedule); }
 
 function updateExerciseCount(){const el=$('#settingsExerciseCount');if(el)el.textContent=EXERCISES.length.toLocaleString()}
 
@@ -2258,7 +2261,7 @@ async function importRoutineText(mode='replace'){
       for (let i = 0; i < 7; i++) {
         if (!validIds.has(state.schedule[i])) state.schedule[i] = '';
       }
-      saveScheduleState();
+      syncScheduleState();
       toast(`${routines.length} routine${routines.length===1?'':'s'} imported`);
     }
     state.activeRoutineId=null;
@@ -2406,7 +2409,7 @@ $('#routineSchedule')?.addEventListener('change', (event) => {
   if (!select) return;
   const day = Number(select.dataset.scheduleDay);
   state.schedule[day] = select.value;
-  saveScheduleState();
+  syncScheduleState();
   const baseDate = new Date(2024, 0, 7 + day, 12);
   const dayName = baseDate.toLocaleDateString(undefined, { weekday: 'long' });
   const routine = state.routines.find(r => r.id === select.value);
@@ -3272,7 +3275,7 @@ async function handleClearDataSubmit(event) {
     state.routineDraftName = '';
     state.routineFilter = '';
     state.schedule = { 0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' };
-    saveScheduleState();
+    syncScheduleState();
     $('#mainRoutineSelect').value = '';
     saveRoutines();
     renderRoutineDrawer();
@@ -4321,7 +4324,7 @@ $('#deleteRoutine').addEventListener('click', async () => {
   for (let i = 0; i < 7; i++) {
     if (state.schedule[i] === deletedId) state.schedule[i] = '';
   }
-  saveScheduleState();
+  syncScheduleState();
   saveRoutines();
   renderRoutineDrawer();
   toast('Routine deleted');
@@ -4968,12 +4971,7 @@ $('#customExerciseList').addEventListener('click',async(event)=>{
     const affected=state.routines.filter(routine=>routine.items.some(item=>item.exerciseId===exercise.id));
     affected.forEach(routine=>{routine.items=routine.items.filter(item=>item.exerciseId!==exercise.id)});
     if(affected.length)saveRoutines();
-    const removedLogIds=state.progress.logs.filter(log=>log.exerciseId===exercise.id).map(log=>log.id);
-    if(removedLogIds.length){
-      if(VAULT.loaded)removedLogIds.forEach(id=>markDeleted('trainingLogs',id));
-      state.progress.logs=state.progress.logs.filter(log=>!removedLogIds.includes(log.id));
-      persistProgress();
-    }
+    deleteProgressLogsForExercises([exercise.id]);
     if(customExerciseDraft.id===exercise.id)resetCustomExerciseSheet();
     renderCustomExerciseList();
     render();
@@ -5377,7 +5375,7 @@ function parseMealsText(text) {
       continue;
     }
 
-    const macroMatch = line.match(/^Per100g\s+(\d+(?:\.\d+)?)\s*cal\s+(\d+(?:\.\d+)?)\s*pro\s+(\d+(?:\.\d+)?)\s*carb\s+(\d+(?:\.\d+)?)\s*fat$/i);
+    const macroMatch = line.match(PER100G_LINE);
     if (macroMatch && currentMeal) {
       currentMeal.cals100 = Math.round(Number(macroMatch[1]));
       currentMeal.p100 = clamp(macroMatch[2], 0, 999);
