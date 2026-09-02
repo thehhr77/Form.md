@@ -504,23 +504,6 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   height: 11px;
   color: currentColor;
 }
-button.modal-tag-add {
-  padding: 4px 5px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  appearance: none;
-  align-self: center;
-}
-button.modal-tag-add:active {
-  color: var(--text);
-}
-button.modal-tag-add .icon {
-  width: 12px;
-  height: 12px;
-  color: currentColor;
-}
 .exercise-tag-menu {
   position: fixed;
   z-index: 260;
@@ -528,9 +511,10 @@ button.modal-tag-add .icon {
   min-width: 240px;
   max-width: calc(100vw - 12px);
 }
-.exercise-tag-menu .tag-menu-input-wrap { padding: 2px 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.exercise-tag-menu .tag-menu-input-wrap { display: flex; align-items: center; gap: 5px; padding: 2px 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
 .exercise-tag-menu input {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 34px;
   padding: 0 10px;
   color: var(--text);
@@ -539,6 +523,21 @@ button.modal-tag-add .icon {
   border-radius: var(--radius-control);
   font-size: 13px;
 }
+.exercise-tag-submit {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  appearance: none;
+}
+.exercise-tag-submit .icon { width: 16px; height: 16px; color: currentColor; }
 .exercise-tag-options { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px 4px; }
 .exercise-tag-options .routine-menu-empty { width: 100%; padding: 6px 8px; }
 .exercise-tag-options [data-tag-option] {
@@ -570,7 +569,9 @@ button.modal-tag-add .icon {
 .feature-primary { min-height: var(--control-size); padding: 0 15px; color: var(--accent-ink); background: var(--accent); border: none; font-weight: var(--weight-semibold); }
 .modal-progress-actions { display: flex; align-items: center; gap: var(--space-2); }
 .modal-progress button { display: inline-flex; align-items: center; gap: var(--space-2); }
-.modal-progress .modal-like { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; padding: 0; color: var(--accent); background: transparent; border: 0; border-radius: var(--radius-control); }
+.modal-progress .modal-like,
+.modal-progress .modal-tag-button,
+.modal-progress .modal-icon-button { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; padding: 0; color: var(--accent); background: transparent; border: 0; border-radius: var(--radius-control); }
 .modal-progress .modal-like.saved,
 .modal-progress .modal-like[aria-pressed="true"] { color: var(--accent); }
 .modal-progress .modal-like.saved .icon,

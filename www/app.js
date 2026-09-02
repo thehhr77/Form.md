@@ -1697,7 +1697,7 @@ function positionMenuBetween(menu, button, options=null){
   menu.style.bottom=bottom;
   return openUp;
 }
-const LEGACY_MENUS=[['routineMenu','routineSelectorButton'],['menuCustomManageSelect','btnCustomManageSelect'],['menuCustomIngredient','btnCustomIngredientSelect'],['exerciseTagMenu','modalTagAdd',{alignRight:true,minWidth:240}]];
+const LEGACY_MENUS=[['routineMenu','routineSelectorButton'],['menuCustomManageSelect','btnCustomManageSelect'],['menuCustomIngredient','btnCustomIngredientSelect'],['exerciseTagMenu','modalTagButton',{alignRight:true,minWidth:240}]];
 function repositionOpenLegacyMenus(){
   for(const[menuId,buttonId,options]of LEGACY_MENUS){
     const menu=document.getElementById(menuId);
@@ -1769,11 +1769,19 @@ function hideTagMenu(except=null){
   const menu=$('#exerciseTagMenu');
   if(!menu||menu.hidden||menu===except)return;
   menu.hidden=true;
-  $('#modalTagAdd')?.setAttribute('aria-expanded','false');
+  $('#modalTagButton')?.setAttribute('aria-expanded','false');
+}
+function submitExerciseTagInput(){
+  const exercise=state.activeExercise;
+  if(!exercise)return;
+  const input=$('#exerciseTagInput');
+  if(!input)return;
+  createExerciseTag(exercise.id,input.value);
+  input.focus({preventScroll:true});
 }
 $('#modalBadges').addEventListener('click',(event)=>{
-  if(!event.target.closest('#modalTagAdd'))return;
-  const menu=$('#exerciseTagMenu'),button=$('#modalTagAdd');
+  if(!event.target.closest('#modalTagButton'))return;
+  const menu=$('#exerciseTagMenu'),button=$('#modalTagButton');
   if(!menu||!button)return;
   const willOpen=toggleMenu(menu,button,{except:()=>menu});
   if(willOpen){
@@ -1791,17 +1799,16 @@ $('#exerciseTagMenu').addEventListener('click',(event)=>{
   if(assigned===null)return;
   renderModalBadges(exercise);
   renderModalTagMenu();
-  positionMenuBetween($('#exerciseTagMenu'),$('#modalTagAdd'),{alignRight:true,minWidth:240});
-  $('#modalTagAdd')?.setAttribute('aria-expanded','true');
+  positionMenuBetween($('#exerciseTagMenu'),$('#modalTagButton'),{alignRight:true,minWidth:240});
+  $('#modalTagButton')?.setAttribute('aria-expanded','true');
   renderFilterPills();
 });
 $('#exerciseTagInput').addEventListener('keydown',(event)=>{
-  if(event.key!=='Enter')return;
+  if(event.key!=='Enter'&&event.keyCode!==13)return;
   event.preventDefault();
-  const exercise=state.activeExercise;
-  if(!exercise)return;
-  createExerciseTag(exercise.id,event.target.value);
+  submitExerciseTagInput();
 });
+$('#exerciseTagSubmit')?.addEventListener('click',submitExerciseTagInput);
 function initCustomSelect(select){
   if(!select||select.dataset.customSelectReady)return;
   const parent=select.parentNode,wrapper=document.createElement('div');
@@ -1920,7 +1927,7 @@ function initMenuKeyboard(menuId,buttonId){
 function syncCustomSelects(){CUSTOM_SELECT_IDS.forEach(id=>syncCustomSelect(document.getElementById(id)))}
 document.addEventListener('click',event=>{
   if(event.target.closest('#mobileSortMenu')||event.target.closest('#mobileSortBtn'))return;
-  if(event.target.closest('#exerciseTagMenu')||event.target.closest('#modalTagAdd'))return;
+  if(event.target.closest('#exerciseTagMenu')||event.target.closest('#modalTagButton'))return;
   if(!event.target.closest('.custom-select')&&!event.target.closest('.routine-editor-control'))closeAllCustomMenus();
   closeSortMenu();
 });
@@ -3032,7 +3039,7 @@ function renderModalBadges(exercise){
     ...secondaries.map(sec => `<span class="modal-badge-pill"><span>${esc(title(sec))}</span></span>`),
     ...exerciseTagsOf(exercise.id).map(tag => `<span class="modal-badge-pill modal-tag-pill"><svg class="icon"><use href="#icon-hash"/></svg><span>${esc(tag)}</span></span>`)
   ].join('');
-  $('#modalBadges').innerHTML = badgesHtml + `<button type="button" class="modal-badge-pill modal-tag-add" id="modalTagAdd" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-plus"/></svg></button>`;
+  $('#modalBadges').innerHTML = badgesHtml;
 }
 function openModal(exercise, returnFocus = document.activeElement) {
   state.activeExercise = exercise;
