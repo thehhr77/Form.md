@@ -176,7 +176,7 @@ async function importCustomExercises(mode='add'){
   const keptIds=new Set(parsed.map(exercise=>exercise.id));
   const removedIds=new Set(CUSTOM_EXERCISES.map(item=>item.id).filter(id=>!keptIds.has(id)));
   if(state.activeWorkout&&awRows().some(({exercise})=>exercise.custom&&removedIds.has(exercise.id)))return toast('Finish the active workout first');
-  if(CUSTOM_EXERCISES.length&&!(await appConfirm('Replace all existing custom exercises?',{title:'Import custom exercises',okLabel:'Replace'})))return;
+  if(CUSTOM_EXERCISES.length&&!(await appConfirm('Replace all existing custom exercises? Removed exercises are deleted from routines along with their progress logs.',{title:'Import custom exercises',okLabel:'Replace'})))return;
   for(const exercise of CUSTOM_EXERCISES){
     const arrayIndex=EXERCISES.indexOf(exercise);
     if(arrayIndex!==-1)EXERCISES.splice(arrayIndex,1);
@@ -192,10 +192,19 @@ async function importCustomExercises(mode='add'){
   const affected=state.routines.filter(routine=>routine.items.some(item=>removedIds.has(item.exerciseId)));
   affected.forEach(routine=>{routine.items=routine.items.filter(item=>!removedIds.has(item.exerciseId))});
   if(affected.length)saveRoutines();
+  const removedLogIds=state.progress.logs.filter(log=>removedIds.has(log.exerciseId)).map(log=>log.id);
+  if(removedLogIds.length){
+    if(VAULT.loaded)removedLogIds.forEach(id=>markDeleted('trainingLogs',id));
+    state.progress.logs=state.progress.logs.filter(log=>!removedLogIds.includes(log.id));
+    persistProgress();
+  }
   mergeCustomExercisesImported(parsed);
   persistCustomExercises();
   closeCustomExercisePaste();
   renderCustomExerciseList();
+  render();
+  renderFilterPills();
+  renderProgressHistory();
   toast(`Replaced with ${parsed.length} custom exercise${parsed.length===1?'':'s'}`);
 }
 function deleteCustomExercise(exerciseId){
@@ -2208,7 +2217,7 @@ function renderRoutineDrawer(){
         const unit=routineItemUnit(item,exercise);
         const supersetLinked=Boolean(item.superset);
         const modeRow=`<div class="routine-mode-row"><div class="mode-switch mode-switch--compact"><button type="button" data-mode="reps" aria-pressed="${timed?'false':'true'}">Reps</button><button type="button" data-mode="timed" aria-pressed="${timed?'true':'false'}">Timed</button></div><div class="mode-switch mode-switch--compact"><button type="button" data-superset-toggle aria-pressed="${supersetLinked?'true':'false'}"${state.supersetLinking===item.exerciseId?' class="linking"':''} aria-label="${supersetLinked?'Remove superset pairing':'Pair in a superset'}">Link</button></div><div class="mode-switch mode-switch--compact"><button type="button" data-item-toggle aria-pressed="${timed?(unit==='min'?'true':'false'):(routineItemWeighted(item,exercise)?'true':'false')}" aria-label="${timed?'Toggle minutes or seconds':'Toggle weight tracking'}">${timed?'Mins':'Weight'}</button></div></div>`;
-        return`<div class="routine-item${supersetLinked?' superset':''}" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Decrease ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${timed&&unit==='min'?routineSecondsDisplay(item.reps,'min'):item.reps}" readonly tabindex="-1" aria-label="${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Increase ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
+        return`<div class="routine-item${supersetLinked?' superset':''}" data-exercise-id="${esc(item.exerciseId)}"><div class="routine-item-head"><span class="routine-order" aria-hidden="true">${index+1}</span><div class="routine-item-copy"><strong>${esc(exercise.name)}</strong><span>${esc(title(exercise.target))} · ${esc(title(exercise.equipment))}</span></div><div class="routine-item-actions"><button class="routine-move routine-up" type="button" aria-label="Move ${esc(exercise.name)} up"${index===0?' disabled':''}>${icon('up')}</button><button class="routine-move routine-down" type="button" aria-label="Move ${esc(exercise.name)} down"${index===items.length-1?' disabled':''}>${icon('down')}</button><button class="routine-remove" type="button" aria-label="Remove ${esc(exercise.name)}">${icon('close')}</button></div></div><div class="routine-fields">${modeRow}<div class="routine-field"><label>${timed?'Intervals':'Sets'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="sets" aria-label="Decrease ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-sets" value="${item.sets}" readonly tabindex="-1" aria-label="${timed?'Intervals':'Sets'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="sets" aria-label="Increase ${timed?'intervals':'sets'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div><div class="routine-field routine-field-reps"><label>${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'}</label><div class="routine-stepper"><button class="routine-step routine-decrease" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Decrease ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('minus')}</button><input class="routine-reps" value="${timed?Math.round((Number(item.reps)||0)*100)/100:item.reps}" readonly tabindex="-1" aria-label="${timed?(unit==='sec'?'Seconds per interval':'Minutes per interval'):'Reps'} for ${esc(exercise.name)}"><button class="routine-step routine-increase" type="button" data-field="reps" data-step="${timed?(unit==='sec'?5:1):1}" aria-label="Increase ${timed?(unit==='sec'?'seconds':'minutes'):'reps'} for ${esc(exercise.name)}">${icon('plus')}</button></div></div></div></div>`;
       }).join('');
     }
   } else {
@@ -2344,7 +2353,6 @@ function supersetExportLabels(routine){
   }
   return labels;
 }
-function routineSecondsDisplay(seconds,unit){return unit==='min'?String(Math.round(((Number(seconds)||0)/60)*100)/100):String(Math.round(Number(seconds))||0)}
 function lastLoggedDurationFor(exerciseId){
   const logs=[...state.progress.logs].filter(log=>log.exerciseId===exerciseId&&isTimedCardioLog(log)).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
   const latest=logs[0];
@@ -2575,7 +2583,7 @@ function renderActiveWorkout(){
       <div class="aw-row-top">
         <div class="aw-main">
           ${exercise.custom?`<button type="button" class="aw-media aw-media-custom" data-aw-action="open" data-exercise="${exercise.id}" aria-label="Open ${esc(exercise.name)} details"><span class="custom-icon">${icon('movement')}</span></button>`:`<button type="button" class="aw-media" data-aw-action="open" data-exercise="${exercise.id}" aria-label="Open ${esc(exercise.name)} details"><img src="${mediaSrc}" alt="" loading="lazy" data-aw-media data-aw-exercise="${exercise.id}"></button>`}
-          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${routineSecondsDisplay(item.reps,routineItemUnit(item,exercise))} ${routineItemUnit(item,exercise)==='min'?'min':'sec'} each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
+          <div class="aw-name-wrap"><span class="aw-name">${esc(exercise.name)}</span><span class="aw-target">${timed?`${item.sets} intervals · ${Math.round((Number(item.reps)||0)*100)/100} ${routineItemUnit(item,exercise)==='min'?'min':'sec'} each · ${esc(title(exercise.target))}`:`${item.sets} sets × ${item.reps} reps · ${esc(title(exercise.target))}`}</span></div>
         </div>
         <div class="aw-row-badges">${item.superset?`<span class="aw-superset-badge">${icon('link')} Superset</span>`:''}${complete&&!skipped?`<span class="aw-done-badge">${icon('check')} Done</span>`:''}${skipped?`<span class="aw-skipped-badge">Skipped</span>`:''}</div>
       </div>
@@ -3600,7 +3608,7 @@ function renderProgressDashboard() {
     if (primary) muscleSets.set(primary, (muscleSets.get(primary) || 0) + logSets);
     for (const raw of (exercise?.secondary_muscles || [])) {
       const muscle = SECONDARY_MUSCLE_TO_MAP[String(raw || '').toLowerCase()];
-      if (muscle) muscleSets.set(muscle, (muscleSets.get(muscle) || 0) + logSets * 0.5);
+      if (muscle && muscle !== primary) muscleSets.set(muscle, (muscleSets.get(muscle) || 0) + logSets * 0.5);
     }
   });
   const categories = [...byCategory.entries()].sort((left, right) => right[1].sets - left[1].sets);
@@ -4727,7 +4735,7 @@ function renderCustomExercisePills(){
   $('#customExerciseEquipment').innerHTML=renderPillRowHtml(CUSTOM_EXERCISE_EQUIPMENT,customExerciseDraft.equipment);
 }
 function syncCustomExerciseValidation(){
-  $('#customExerciseSave').disabled=!(customExerciseDraft.name.trim()&&customExerciseDraft.category);
+  $('#customExerciseSave').disabled=!(customExerciseDraft.name.trim()&&customExerciseDraft.category&&customExerciseDraft.target);
   $('#customExerciseSave').textContent=customExerciseDraft.id?'Save changes':'Add exercise';
 }
 function renderCustomExerciseList(){
@@ -4761,6 +4769,7 @@ $('#customExerciseTarget').addEventListener('click',event=>{
   if(!pill)return;
   customExerciseDraft.target=customExerciseDraft.target===pill.dataset.option?'':pill.dataset.option;
   renderCustomExercisePills();
+  syncCustomExerciseValidation();
 });
 $('#customExerciseEquipment').addEventListener('click',event=>{
   const pill=event.target.closest('.pill');
@@ -4772,8 +4781,9 @@ $('#customExerciseForm').addEventListener('submit',event=>{
   event.preventDefault();
   const name=customExerciseDraft.name.trim();
   if(!name||!customExerciseDraft.category)return;
+  if(!customExerciseDraft.target)return toast('Select a target muscle');
   if(CUSTOM_EXERCISES.some(item=>item.name.toLowerCase()===name.toLowerCase()&&item.id!==customExerciseDraft.id))return toast('An exercise with this name already exists');
-  const data={name,category:customExerciseDraft.category,equipment:customExerciseDraft.equipment,description:$('#customExerciseDescription').value.trim(),...(customExerciseDraft.target?{target:customExerciseDraft.target}:{})};
+  const data={name,category:customExerciseDraft.category,target:customExerciseDraft.target,equipment:customExerciseDraft.equipment,description:$('#customExerciseDescription').value.trim()};
   if(customExerciseDraft.id){
     const updated=updateCustomExercise(customExerciseDraft.id,data);
     if(!updated)return toast('Could not update exercise');
@@ -4814,7 +4824,9 @@ $('#customExerciseList').addEventListener('click',async(event)=>{
   }
   if(event.target.closest('.custom-exercise-delete')){
     if(state.activeWorkout&&awRows().some(({exercise:rowExercise})=>rowExercise.id===exercise.id))return toast('Finish the active workout first');
-    if(!(await appConfirm(`Delete "${exercise.name}"? It will be removed from any routines.`,{title:'Delete exercise',okLabel:'Delete'})))return;
+    const logCount=state.progress.logs.filter(log=>log.exerciseId===exercise.id).length;
+    const warning=`Delete "${exercise.name}"? It will be removed from any routines${logCount?` and its ${logCount} progress log${logCount===1?'':'s'} deleted`:''}.`;
+    if(!(await appConfirm(warning,{title:'Delete exercise',okLabel:'Delete'})))return;
     deleteCustomExercise(exercise.id);
     if(state.saved.has(exercise.id)){
       state.saved.delete(exercise.id);
@@ -4823,11 +4835,18 @@ $('#customExerciseList').addEventListener('click',async(event)=>{
     const affected=state.routines.filter(routine=>routine.items.some(item=>item.exerciseId===exercise.id));
     affected.forEach(routine=>{routine.items=routine.items.filter(item=>item.exerciseId!==exercise.id)});
     if(affected.length)saveRoutines();
+    const removedLogIds=state.progress.logs.filter(log=>log.exerciseId===exercise.id).map(log=>log.id);
+    if(removedLogIds.length){
+      if(VAULT.loaded)removedLogIds.forEach(id=>markDeleted('trainingLogs',id));
+      state.progress.logs=state.progress.logs.filter(log=>!removedLogIds.includes(log.id));
+      persistProgress();
+    }
     if(customExerciseDraft.id===exercise.id)resetCustomExerciseSheet();
     renderCustomExerciseList();
     render();
     renderFilterPills();
     renderRoutineDrawer();
+    renderProgressHistory();
     toast('Custom exercise deleted');
   }
 });
