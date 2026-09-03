@@ -1018,7 +1018,7 @@ function trainingLogsToMd(logs) {
       const notesText = sanitize(log.notes || '');
       if (notesText) fields.push(`notes: ${notesText}`);
       fields.push(`id: ${log.id}`);
-      lines.push(fields.map((field) => `- ${field}`).join('\n'));
+      lines.push(fields.map((field, idx) => (idx === 0 ? `- ${field}` : `\t- ${field}`)).join('\n'));
       lines.push('');
     }
   }
