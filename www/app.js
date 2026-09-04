@@ -66,7 +66,13 @@ const SECONDARY_MUSCLE_TO_MAP=Object.freeze({
   'shoulders':'deltoids','rear deltoids':'deltoids','deltoids':'deltoids','rotator cuff':'rotator-cuff','trapezius':'trapezius','traps':'trapezius','rhomboids':'rhomboids','upper back':'upper-back','back':'upper-back','latissimus dorsi':'upper-back','lats':'upper-back','chest':'chest','upper chest':'chest','biceps':'biceps','brachialis':'biceps','triceps':'triceps','forearms':'forearm','wrist flexors':'forearm','wrist extensors':'forearm','wrists':'forearm','grip muscles':'forearm','hands':'forearm','core':'abs','abdominals':'abs','lower abs':'abs','obliques':'obliques','hip flexors':'quadriceps','groin':'adductors','inner thighs':'adductors','quadriceps':'quadriceps','hamstrings':'hamstring','glutes':'gluteal','calves':'calves','soleus':'calves','shins':'tibialis','ankles':'ankles','ankle stabilizers':'ankles','feet':'feet','sternocleidomastoid':'neck','lower back':'lower-back'
 });
 const EXERCISE_CATEGORIES=Object.freeze(['waist','upper legs','back','lower legs','chest','upper arms','cardio','shoulders','lower arms','neck']);
-const CUSTOM_EXERCISE_EQUIPMENT=Object.freeze(['body weight','barbell','dumbbell','kettlebell','cable','band','machine','other']);
+const CUSTOM_EXERCISE_EQUIPMENT=Object.freeze(['body weight',...[...new Set(EXERCISES.map(exercise=>String(exercise.equipment||'').trim().toLowerCase()).filter(value=>value&&value!=='body weight'))].sort()]);
+function nextCustomExerciseId(){
+  const used=new Set(EXERCISES.map(exercise=>String(exercise.id)));
+  let n=1;
+  while(used.has(String(n).padStart(5,'0')))n++;
+  return String(n).padStart(5,'0');
+}
 function normalizeCustomExercise(raw){
   if(!raw||typeof raw!=='object')return null;
   const name=String(raw.name||'').trim().slice(0,80);
@@ -76,7 +82,7 @@ function normalizeCustomExercise(raw){
   const description=String(raw.description||'').trim().slice(0,300);
   const target=String(raw.target||'').trim().toLowerCase();
   const id=String(raw.id||'').trim();
-  return{id:/^c-\d+/.test(id)?id:`c-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,name,category,equipment,target:target||category,...(description?{description}:{}),instruction_steps:{en:[]},muscle_group:'',secondary_muscles:[],image:'',gif_url:'',custom:true};
+  return{id:/^(\d{5}|c-\d+)/.test(id)?id:nextCustomExerciseId(),name,category,equipment,target:target||category,...(description?{description}:{}),instruction_steps:{en:[]},muscle_group:'',secondary_muscles:[],image:'',gif_url:'',custom:true};
 }
 const CUSTOM_EXERCISES=(()=>{const seen=new Set();return readStorage(STORAGE_KEYS.customExercises,[],Array.isArray).map(normalizeCustomExercise).filter(item=>{if(!item||seen.has(item.name.toLowerCase()))return false;seen.add(item.name.toLowerCase());return true})})();
 EXERCISES.push(...CUSTOM_EXERCISES);
@@ -629,7 +635,7 @@ function parseRoutinesMd(text) {
       if (routine) routine.liked = true;
       continue;
     }
-    const exMatch = line.replace(/^#/, '').trim().match(/^(\d{4})\s+(\d+)\s*\*\s*(\d+)(?:\s+(\S.*))?$/);
+    const exMatch = line.replace(/^#/, '').trim().match(/^(\d{4,5}|c-[\w-]+)\s+(\d+)\s*\*\s*(\d+)(?:\s+(\S.*))?$/);
     if (exMatch && routine) {
       const id = String(exMatch[1]);
       if (!VALID_EXERCISE_IDS.has(id) || seen.has(id)) continue;
@@ -1118,6 +1124,7 @@ function configToMd() {
 const VAULT = {
   folder: VAULT_DEFAULT_FOLDER,
   loaded: false,
+  switching: false,
   lastRead: {},
   dirty: { routines: false, meals: false, trainingLogs: false, nutritionDiary: false, config: false },
   deleted: { routines: new Set(), meals: new Set(), trainingLogs: new Set(), nutritionDiary: new Set() }
@@ -1188,25 +1195,31 @@ function applyConfigToState(cfg) {
     persistExerciseTags();
   }
   if (Array.isArray(cfg.customExercises) && cfg.customExercises.length) {
-    let added = 0;
-    for (const raw of cfg.customExercises) {
-      const exercise = normalizeCustomExercise(raw);
-      if (!exercise) continue;
-      if (EXERCISE_BY_ID.has(exercise.id) || CUSTOM_EXERCISES.some(item => item.name.toLowerCase() === exercise.name.toLowerCase())) continue;
-      CUSTOM_EXERCISES.push(exercise);
-      EXERCISES.push(exercise);
-      EXERCISE_BY_ID.set(exercise.id, exercise);
-      VALID_EXERCISE_IDS.add(exercise.id);
-      added++;
-    }
-    if (added) {
-      persistCustomExercises();
+    if (registerConfigCustomExercises(cfg.customExercises)) {
       render();
       renderFilterPills();
       renderRoutineDrawer();
       updateExerciseCount();
     }
   }
+}
+
+/* Registers vault custom exercises into the dataset. Idempotent; safe to call before
+   routines/logs parsing so ID checks see vault-only customs. Returns how many were added. */
+function registerConfigCustomExercises(rawList) {
+  let added = 0;
+  for (const raw of (Array.isArray(rawList) ? rawList : [])) {
+    const exercise = normalizeCustomExercise(raw);
+    if (!exercise) continue;
+    if (EXERCISE_BY_ID.has(exercise.id) || CUSTOM_EXERCISES.some(item => item.name.toLowerCase() === exercise.name.toLowerCase())) continue;
+    CUSTOM_EXERCISES.push(exercise);
+    EXERCISES.push(exercise);
+    EXERCISE_BY_ID.set(exercise.id, exercise);
+    VALID_EXERCISE_IDS.add(exercise.id);
+    added++;
+  }
+  if (added) persistCustomExercises();
+  return added;
 }
 
 function mergeConfigFromVault(fileText) {
@@ -1337,6 +1350,7 @@ function getSerializer(fileKey) {
 }
 
 async function writeVaultFile(fileKey, folder = VAULT.folder) {
+  if (!VAULT.loaded || VAULT.switching) return;
   if (vaultSaving[fileKey]) { scheduleVaultSave(fileKey, true); return; }
   vaultSaving[fileKey] = true;
   try {
@@ -1464,7 +1478,9 @@ function migrateLegacyData() {
 async function loadVault(folder, options) {
   const opts = options || {};
   const silent = opts.silent !== false;
+  const previousFolder = VAULT.folder;
   VAULT.folder = sanitizeVaultFolder(folder);
+  VAULT.switching = true;
   try {
     const [routinesText, mealsText, logsText, diaryText, configText] = await Promise.all([
       FS_ADAPTER.readFile(VAULT.folder, VAULT_FILES.routines),
@@ -1492,14 +1508,19 @@ async function loadVault(folder, options) {
         FS_ADAPTER.writeFile(VAULT.folder, VAULT_FILES.config, configToMd())
       ]);
     } else {
-      buildDefaultState();
+      /* Parse everything before touching state: parsers are pure, so a failed
+         load leaves the previous vault's state intact while switching=false. */
+      const prelimConfig = parseConfigMd(configText || '');
+      /* Register config.md custom exercises before parsing routines/logs so their
+         ID validation (VALID_EXERCISE_IDS) sees vault-only customs. */
+      registerConfigCustomExercises(prelimConfig.customExercises);
       const routines = parseRoutinesMd(routinesText);
       const meals = parseMealsMd(mealsText);
       const logs = parseTrainingLogsMd(logsText);
       const history = parseNutritionDiaryMd(diaryText);
-      const config = parseConfigMd(configText || '');
       const foodDb = meals.length ? meals : JSON.parse(JSON.stringify(DEFAULT_FOOD_DB));
-      data = { routines, logs, foodDb, history, config };
+      buildDefaultState();
+      data = { routines, logs, foodDb, history, config: prelimConfig };
       applyVaultData(data);
     }
     VAULT.lastRead = {
@@ -1518,10 +1539,18 @@ async function loadVault(folder, options) {
     renderEverything();
     finishBootGate();
     if (!silent) toast(allMissing ? `Created new vault in Documents/${VAULT.folder}` : `Vault loaded from Documents/${VAULT.folder}`);
+    return true;
   } catch (err) {
     console.error('Vault load error:', err);
+    if (previousFolder !== VAULT.folder) {
+      VAULT.folder = previousFolder;
+      updateVaultUI();
+    }
     finishBootGate();
     if (!silent) toast('Vault load failed');
+    return false;
+  } finally {
+    VAULT.switching = false;
   }
 }
 
@@ -1533,12 +1562,14 @@ async function switchVault(folder) {
     toast('Save your meal first');
     return;
   }
-  state.activeWorkout = null;
-  try { localStorage.removeItem(STORAGE_KEYS.activeWorkout); } catch {}
   const pendingKeys = Object.keys(vaultSaveTimers);
   for (const key of pendingKeys) { clearTimeout(vaultSaveTimers[key]); delete vaultSaveTimers[key]; }
   if (VAULT.loaded && pendingKeys.length) await Promise.all(pendingKeys.map(key => writeVaultFile(key).catch(() => {})));
-  await loadVault(clean, { silent: false });
+  const switched = await loadVault(clean, { silent: false });
+  if (!switched) return;
+  state.activeWorkout = null;
+  try { localStorage.removeItem(STORAGE_KEYS.activeWorkout); } catch {}
+  syncFilterPanelVisibility();
 }
 
 async function reloadVault() {
@@ -3906,6 +3937,20 @@ function renderProgressDashboard() {
   weekNavigation.setAttribute('aria-hidden', String(allTime));
   $('#dashboardWeeklyBars').hidden = allTime || monthly;
   $('#dashboardMonthGrid').hidden = !monthly;
+  const monthWeekdays = $('#dashboardMonthWeekdays');
+  if (monthWeekdays) {
+    monthWeekdays.hidden = !monthly;
+    if (monthly) {
+      const firstDay = Number(state.progressPreferences.firstDay);
+      const weekStart = [0, 1, 6].includes(firstDay) ? firstDay : 1;
+      const weekBase = new Date(2024, 0, 7 + weekStart, 12);
+      monthWeekdays.innerHTML = Array.from({ length: 7 }, (_, index) => {
+        const day = new Date(weekBase);
+        day.setDate(weekBase.getDate() + index);
+        return `<span>${esc(day.toLocaleDateString(undefined, { weekday: 'narrow' }))}</span>`;
+      }).join('');
+    }
+  }
   $('#dashboardAllTimeChart').hidden = !allTime;
   const scopeToggle = $('#dashboardScopeToggle');
   const nextScope = nextDashboardScope(scope);
@@ -5064,12 +5109,12 @@ document.getElementById('fuelLogMealModal').addEventListener('click', (e) => {
 
 /* --- custom exercise panel --- */
 const customExerciseDraft={id:null,name:'',category:'',target:'',equipment:'',description:''};
-function customTargetOptions(){return[...new Set(EXERCISES.filter(exercise=>!exercise.custom).map(exercise=>String(exercise.target||'').toLowerCase()).filter(Boolean))].sort()}
+function customTargetOptions(){return uniqueValues('target')}
 function renderPillRowHtml(options,selected){
   return options.map(value=>`<button type="button" class="pill" data-option="${esc(value)}" aria-pressed="${String(selected===value)}">${esc(title(value))}</button>`).join('');
 }
 function renderCustomExercisePills(){
-  $('#customExerciseBodyPart').innerHTML=renderPillRowHtml(EXERCISE_CATEGORIES,customExerciseDraft.category);
+  $('#customExerciseBodyPart').innerHTML=renderPillRowHtml(uniqueValues('category'),customExerciseDraft.category);
   $('#customExerciseTarget').innerHTML=renderPillRowHtml(customTargetOptions(),customExerciseDraft.target);
   $('#customExerciseEquipment').innerHTML=renderPillRowHtml(CUSTOM_EXERCISE_EQUIPMENT,customExerciseDraft.equipment);
 }
@@ -5106,7 +5151,7 @@ $('#customExerciseBodyPart').addEventListener('click',event=>{
 $('#customExerciseTarget').addEventListener('click',event=>{
   const pill=event.target.closest('.pill');
   if(!pill)return;
-  customExerciseDraft.target=customExerciseDraft.target===pill.dataset.option?'':pill.dataset.option;
+  customExerciseDraft.target=pill.dataset.option;
   renderCustomExercisePills();
   syncCustomExerciseValidation();
 });

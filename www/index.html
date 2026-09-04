@@ -157,6 +157,7 @@
           <div class="dashboard-card-head dashboard-week-head"><div><span class="eyebrow" id="dashboardWeekLabel">This week</span><h3 id="dashboardWeekRange">Training sets</h3></div><div class="date-stepper" id="dashboardWeekNav" aria-label="Week navigation"><button class="date-stepper-btn date-stepper-prev" id="dashboardPreviousWeek" type="button" aria-label="Previous logged week"><svg class="icon"><use href="#icon-chevron"/></svg></button><button class="date-stepper-btn" id="dashboardResetWeek" type="button" aria-label="Reset to current week"><svg class="icon"><use href="#icon-reset"/></svg></button><button class="date-stepper-btn date-stepper-next" id="dashboardNextWeek" type="button" aria-label="Next logged week"><svg class="icon"><use href="#icon-chevron"/></svg></button></div><button class="dashboard-scope-toggle" id="dashboardScopeToggle" type="button" aria-pressed="false" aria-label="Show all-time chart"><svg class="icon"><use href="#icon-progress"/></svg></button></div>
           <div class="dashboard-week-summary" id="dashboardWeekSummary" aria-live="polite">0 sessions · 0 sets · 0 exercises</div>
           <div class="weekly-bars" id="dashboardWeeklyBars" aria-label="Sets logged during the selected week"></div>
+          <div class="month-weekdays" id="dashboardMonthWeekdays" hidden></div>
           <div class="month-grid" id="dashboardMonthGrid" hidden></div>
           <div class="all-time-chart" id="dashboardAllTimeChart" hidden></div>
         </section>
@@ -423,7 +424,7 @@
       <form class="progress-form" id="customExerciseForm">
         <div class="feature-field feature-field-wide"><span>Name</span><input id="customExerciseName" type="text" maxlength="80" placeholder="e.g. Landmine press" autocomplete="off"></div>
         <div class="feature-field feature-field-wide"><span>Body part</span><div class="pill-row" id="customExerciseBodyPart" role="group" aria-label="Body part"></div></div>
-        <div class="feature-field feature-field-wide"><span>Target <small>required</small></span><div class="pill-row" id="customExerciseTarget" role="group" aria-label="Target muscle"></div></div>
+        <div class="feature-field feature-field-wide"><span>Target</span><div class="pill-row" id="customExerciseTarget" role="group" aria-label="Target muscle"></div></div>
         <div class="feature-field feature-field-wide"><span>Equipment <small>optional</small></span><div class="pill-row" id="customExerciseEquipment" role="group" aria-label="Equipment"></div></div>
         <label class="feature-field feature-field-wide"><span>Description <small>optional</small></span><textarea id="customExerciseDescription" maxlength="300" rows="2" placeholder="Setup, form cues, or notes"></textarea></label>
         <div class="progress-actions feature-field-wide">
