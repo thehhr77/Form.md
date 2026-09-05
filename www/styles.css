@@ -33,6 +33,9 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
+  --card-title: 15px;
+  --card-sub: 12px;
+  --card-note: 11px;
   --shadow: 0 1px 2px rgba(0,0,0,.18), 0 12px 36px rgba(0,0,0,.24);
   --frame-max: 480px;
   --frame-inset: max(0px, (100vw - var(--frame-max)) / 2);
@@ -194,8 +197,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .aw-row.done { border-color: rgba(var(--accent-rgb), .35); }
 .aw-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); cursor: pointer; }
 .aw-name-wrap { min-width: 0; display: grid; gap: 1px; }
-.aw-name { overflow: hidden; color: var(--text); font-size: 13.5px; font-weight: var(--weight-semibold); text-transform: capitalize; text-overflow: ellipsis; white-space: nowrap; }
-.aw-target { color: #85887f; font-size: 11px; }
+.aw-name { overflow: hidden; color: var(--text); font-size: var(--card-title); font-weight: var(--weight-semibold); line-height: 1.25; text-transform: capitalize; text-overflow: ellipsis; white-space: nowrap; }
+.aw-target { color: #85887f; font-size: var(--card-sub); line-height: 1.3; }
 .aw-done-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 11px; font-weight: var(--weight-semibold); }
 .aw-done-badge .icon { width: 13px; height: 13px; }
 .aw-superset-badge { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); font-size: 11px; font-weight: var(--weight-semibold); }
@@ -337,7 +340,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .fallback .icon { width: 28px; height: 28px; }
 .card-body { position: relative; min-height: 112px; padding: 12px 12px 28px; }
 .card-top { min-width: 0; display: flex; align-items: flex-start; gap: 6px; }
-.card h3 { min-width: 0; min-height: 36px; flex: 1; display: -webkit-box; overflow: hidden; margin: 0; color: var(--text); font-size: 13px; font-weight: var(--weight-medium); line-height: 1.3; text-transform: capitalize; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.card h3 { min-width: 0; min-height: 36px; flex: 1; display: -webkit-box; overflow: hidden; margin: 0; color: var(--text); font-size: var(--card-title); font-weight: var(--weight-medium); line-height: 1.3; text-transform: capitalize; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .card-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0; margin: -3px -3px 0 0; }
 .card-action { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: 0; border-radius: var(--radius-control); }
 .card-action.card-progress,
@@ -347,8 +350,8 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .card-action.save-button.saved .icon { fill: currentColor; }
 .save-button.saved { color: var(--accent); }
 .save-button.saved .icon { fill: currentColor; }
-.meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; padding-right: 32px; color: var(--text-muted); font-size: 11px; }
-.badge { display: inline; color: var(--text-muted); font-size: 11px; font-weight: var(--weight-regular); line-height: 1.3; }
+.meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; padding-right: 32px; color: var(--text-muted); font-size: var(--card-sub); }
+.badge { display: inline; color: var(--text-muted); font-size: var(--card-sub); font-weight: var(--weight-regular); line-height: 1.3; }
 .badge.primary { color: var(--text-muted); }
 .badge:not(:last-child)::after { content: " · "; margin-left: 2px; color: var(--text-faint); }
 .list-view { grid-template-columns: 1fr; }
@@ -537,7 +540,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   appearance: none;
 }
 .exercise-tag-submit .icon { width: 16px; height: 16px; color: currentColor; }
-.exercise-tag-options { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.exercise-tag-options { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px 7px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
 .exercise-tag-options .routine-menu-empty { width: 100%; padding: 6px 8px; }
 .exercise-tag-options [data-tag-option] {
   width: auto;
@@ -558,6 +561,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 }
 
 .section-title { margin: 24px 0 12px; }
+.modal-progress .modal-icon-button[aria-expanded="true"] { background: rgba(var(--accent-rgb), .16); }
 .instructions { color: var(--text-soft); line-height: 1.65; }
 .step-list { display: grid; gap: var(--space-3); }
 .step { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: var(--space-3); color: var(--text-soft); font-size: 13px; line-height: 1.55; }
@@ -700,11 +704,11 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .routine-paste-actions button { min-height: var(--control-size); background: var(--surface-strong); border: none; font-weight: var(--weight-semibold); }
 .routine-items { min-height: 0; display: grid; gap: var(--space-2); overflow: auto; margin-top: var(--space-3); padding: 0 2px 0 0; overscroll-behavior: contain; }
 .routine-item { padding: var(--space-3); background: #1c1c1e; border: none; }
-.routine-item-head { display: flex; align-items: flex-start; gap: var(--space-2); }
+.routine-item-head { display: flex; align-items: center; gap: var(--space-2); }
 .routine-order { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; color: var(--text); background: var(--surface-strong); font-weight: var(--weight-semibold); }
 .routine-item-copy { min-width: 0; flex: 1; }
-.routine-item-copy strong { display: -webkit-box; overflow: hidden; font-weight: var(--weight-medium); line-height: 1.3; overflow-wrap: anywhere; text-overflow: ellipsis; text-transform: capitalize; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.routine-item-copy span { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10px; }
+.routine-item-copy strong { display: -webkit-box; overflow: hidden; font-size: var(--card-title); font-weight: var(--weight-medium); line-height: 1.3; overflow-wrap: anywhere; text-overflow: ellipsis; text-transform: capitalize; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.routine-item-copy span { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--card-sub); line-height: 1.3; }
 .routine-item-actions { display: flex; gap: 2px; }
 .routine-move, .routine-remove { width: var(--control-size); height: var(--control-size); display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: 0; border-radius: var(--radius-control); }
 .routine-remove { color: var(--danger); }
@@ -918,6 +922,10 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
 .muscle-map-frame { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); gap: var(--space-2); height: 284px; margin-inline: calc(var(--space-4) * -1); }
 .muscle-map-view { position: relative; min-width: 0; min-height: 0; height: 100%; max-height: 100%; overflow: hidden; }
 .muscle-map-view canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; display: block; touch-action: pan-y !important; -webkit-touch-callout: none; }
+.modal-muscle-map { margin: 14px 0 0; }
+.modal-muscle-map .muscle-map-frame { height: 198px; margin-inline: 0; gap: var(--space-2); }
+.modal-muscle-map .muscle-map-frame.single-view { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.modal-muscle-map .muscle-map-frame.single-view .muscle-map-view { width: auto; aspect-ratio: 0.57; height: 100%; }
 .dashboard-empty { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4); color: var(--text-muted); background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius-surface); }
 .dashboard-empty strong { color: var(--text); font-size: 13px; }
 .dashboard-empty span { font-size: 11px; }
@@ -1083,8 +1091,8 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
 .custom-exercise-list { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
 .custom-exercise-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 52px; padding: 8px var(--space-3); background: #1c1c1e; border-radius: var(--radius-control); }
 .custom-exercise-copy { min-width: 0; display: grid; gap: 2px; }
-.custom-exercise-copy strong { overflow: hidden; color: var(--text); font-size: 13.5px; font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
-.custom-exercise-copy span { color: var(--text-muted); font-size: 11px; }
+.custom-exercise-copy strong { overflow: hidden; color: var(--text); font-size: var(--card-title); font-weight: var(--weight-semibold); line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.custom-exercise-copy span { color: var(--text-muted); font-size: var(--card-sub); line-height: 1.3; }
 .custom-exercise-actions { flex-shrink: 0; display: flex; gap: 4px; }
 .custom-exercise-edit, .custom-exercise-delete { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: none; border-radius: 50%; cursor: pointer; appearance: none; }
 .custom-exercise-edit .icon, .custom-exercise-delete .icon { width: 16px; height: 16px; }
@@ -1118,16 +1126,16 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   cursor: pointer;
 }
 .progress-entry-date { width: 48px; height: 48px; flex: 0 0 48px; display: grid; grid-template-rows: auto auto; place-items: center; align-content: center; padding: 0; background: var(--surface-strong); text-align: center; border-radius: var(--radius-chip); }
-.progress-entry-date b { font-size: 13.5px; font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; line-height: 1.15; }
-.progress-entry-date span { color: var(--text-muted); font-size: 8px; text-transform: uppercase; }
+.progress-entry-date b { font-size: var(--card-title); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.progress-entry-date span { color: var(--text-muted); font-size: 8.8px; text-transform: uppercase; }
 .progress-entry-date.progress-entry-thumbnail { position: relative; width: 56px; height: 56px; flex-basis: 56px; overflow: hidden; padding: 0; border-radius: 12px; background: linear-gradient(145deg, var(--surface-raised), var(--surface)); }
 .progress-entry-thumbnail img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
 .progress-entry-thumbnail img.failed { display: none; }
 .progress-entry-thumbnail .icon { width: 20px; height: 20px; color: var(--text-muted); }
 .progress-entry-copy { min-width: 0; flex: 1; }
-.progress-entry-copy strong { display: block; overflow: hidden; font-size: 13.5px; font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
-.progress-entry-copy span { display: block; margin-top: 2px; color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.progress-entry-copy small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.progress-entry-copy strong { display: block; overflow: hidden; font-size: var(--card-title); font-weight: var(--weight-semibold); line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.progress-entry-copy span { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--card-sub); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.progress-entry-copy small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-faint); font-size: var(--card-note); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 .entry-delete { width: var(--control-size); height: var(--control-size); flex: 0 0 auto; display: grid; place-items: center; padding: 0; color: var(--danger); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-control); }
 .feature-empty { min-height: 120px; display: grid; place-items: center; margin-top: var(--space-2); padding: var(--space-5); color: var(--text-muted); border-style: dashed; font-size: 12px; text-align: center; }
 
@@ -1815,7 +1823,7 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   }
   .card h3, .list-view .card h3 {
     min-height: auto;
-    font-size: 13.5px;
+    font-size: var(--card-title);
     font-weight: var(--weight-semibold);
     line-height: 1.25;
     margin: 0;

@@ -36,7 +36,7 @@
   <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
   <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
   <symbol id="icon-routine" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h8M4 6h.01M4 12h.01M4 18h.01"/></symbol>
-  <symbol id="icon-progress" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></symbol>
+  <symbol id="icon-progress" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
   <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
   <symbol id="icon-dumbbell" viewBox="0 0 24 24"><path d="M6 7v10M3.5 9v6M18 7v10M20.5 9v6M6 12h12"/></symbol>
   <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
@@ -58,6 +58,7 @@
   <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
   <symbol id="icon-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
   <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
   <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></symbol>
   <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
   <symbol id="icon-archive" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
@@ -126,9 +127,15 @@
         <div class="modal-kicker" id="modalKicker"></div>
         <h2 id="modalTitle"></h2>
         <div class="modal-badges" id="modalBadges"></div>
-        <div class="modal-progress"><span id="modalProgressSummary">No progress logged yet</span><div class="modal-progress-actions"><button class="modal-like" id="modalLikeExercise" type="button" aria-label="Save exercise" aria-pressed="false"><svg class="icon"><use href="#icon-heart"/></svg></button><button class="modal-tag-button" id="modalTagButton" type="button" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-hash"/></svg></button><button class="modal-icon-button" id="modalLogProgress" type="button" aria-label="Log progress"><svg class="icon"><use href="#icon-progress"/></svg></button></div></div>
-        <h3 class="section-title">How to perform</h3>
-        <div id="modalInstructions"></div>
+        <div class="modal-progress"><span id="modalProgressSummary">No progress logged yet</span><div class="modal-progress-actions"><button class="modal-like" id="modalLikeExercise" type="button" aria-label="Save exercise" aria-pressed="false"><svg class="icon"><use href="#icon-heart"/></svg></button><button class="modal-tag-button" id="modalTagButton" type="button" aria-label="Edit tags" aria-haspopup="menu" aria-expanded="false"><svg class="icon"><use href="#icon-hash"/></svg></button><button class="modal-icon-button" id="modalLogProgress" type="button" aria-label="Log progress"><svg class="icon"><use href="#icon-progress"/></svg></button><button class="modal-icon-button" id="modalInstructionsToggle" type="button" aria-label="How to perform" aria-expanded="false" aria-controls="modalInstructions"><svg class="icon"><use href="#icon-help"/></svg></button></div></div>
+        <div class="modal-muscle-map" id="modalMuscleMap" hidden>
+          <div class="muscle-map-frame" id="modalMuscleMapFrame">
+            <div class="muscle-map-view" id="modalMuscleMapFront"></div>
+            <div class="muscle-map-view" id="modalMuscleMapBack"></div>
+          </div>
+        </div>
+        <h3 class="section-title" id="modalInstructionsHeading" hidden>How to perform</h3>
+        <div id="modalInstructions" hidden></div>
       </div>
     </div>
   </article>

@@ -1004,7 +1004,9 @@ function trainingLogsToMd(logs) {
       fields.push(`exerciseId: #${log.exerciseId}`);
       if (isTimedCardioLog(log)) {
         const durUnit = log.durUnit === 'sec' || log.durUnit === 'min' ? log.durUnit : (isTimedCardioExercise(exercise) ? 'min' : 'sec');
-        const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map((value) => Math.round((Number(value) || 0) * 100) / 100).filter((value) => value > 0);
+        /* Stored durations are minutes; sec-unit logs are written unit-native (seconds). */
+        const scale = durUnit === 'sec' ? 60 : 1;
+        const durationList = (Array.isArray(log.setDurations) ? log.setDurations : []).map((value) => Math.round((Number(value) || 0) * scale * 100) / 100).filter((value) => value > 0);
         fields.push(`int: ${Number(log.intervals) || durationList.length || 1}`);
         if (durationList.length) fields.push(`dur(${durUnit}): ${durationList.join(', ')}`);
         const distanceList = (Array.isArray(log.setDistances) ? log.setDistances : []).map((value) => Math.round((Number(value) || 0) * 100) / 100).filter((value) => value > 0);
@@ -2639,7 +2641,7 @@ function seedAwSets(routine){
   return sets;
 }
 function routineItemMode(item,exercise){return item?.mode==='timed'||item?.mode==='reps'?item.mode:(isTimedCardioExercise(exercise)?'timed':'reps')}
-function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(item?.weighted)return true;if(item?.mode==='timed'||item?.mode==='reps')return false;return exerciseHasWeight(exercise)}
+function routineItemWeighted(item,exercise){if(item?.unweighted)return false;if(item?.weighted)return true;if(item?.mode==='timed')return false;return exerciseHasWeight(exercise)}
 function routineItemUnit(item,exercise){if(item?.unit==='sec'||item?.unit==='min')return item.unit;return isTimedCardioExercise(exercise)?'min':'sec'}
 function supersetPartner(routine,item){
   if(!routine||!item||!item.superset)return null;
@@ -2704,11 +2706,13 @@ function syncAwLog(exercise,item){
   if(routineItemMode(item,exercise)==='timed'){
     const checked=awChecked(exercise.id).slice(0,LIMITS.sets);
     if(checked.length>0){
-      const setDurations=checked.map(row=>Math.round(clamp(Number(row.duration)||0,0,LIMITS.duration)*100)/100);
+      /* AW rows hold seconds; logs are always minutes (unit-native at export). */
+      const inMinutes=routineItemUnit(item,exercise)==='sec';
+      const setDurations=checked.map(row=>{const raw=clamp(Number(row.duration)||0,0,LIMITS.duration);const value=inMinutes?Math.round(raw/60*100)/100:Math.round(raw*100)/100;return clamp(value,0,LIMITS.duration)});
       const setDistances=checked.map(row=>Math.round(clamp(Number(row.distance)||0,0,LIMITS.distance)*10)/10);
       const hasDuration=setDurations.some(value=>value>0),hasDistance=setDistances.some(value=>value>0);
       if(hasDuration||hasDistance){
-        state.progress.logs.push({id:`${token}-aw-${exercise.id}`,exerciseId:exercise.id,date:session.date,intervals:checked.length,weight:null,durUnit:routineItemUnit(item,exercise)==='sec'?'sec':'min',...(hasDuration?{setDurations}:{}),...(hasDistance?{setDistances}:{}),notes:'',createdAt:Date.now(),sessionId:token});
+        state.progress.logs.push({id:`${token}-aw-${exercise.id}`,exerciseId:exercise.id,date:session.date,intervals:checked.length,weight:null,durUnit:inMinutes?'min':'sec',...(hasDuration?{setDurations}:{}),...(hasDistance?{setDistances}:{}),notes:'',createdAt:Date.now(),sessionId:token});
       }
     }
     persistProgress();
@@ -2883,7 +2887,7 @@ function renderActiveWorkout(){
         <span class="aw-num">${index+1}</span>
         ${timed?`<div class="routine-stepper" role="group" aria-label="Duration for interval ${index+1} of ${esc(exercise.name)}">
           <button class="routine-step" type="button" data-aw-action="dur-dec" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="Decrease duration"${skipped?' disabled':''}>${icon('minus')}</button>
-          <output aria-live="polite">${formatWeightValue(clamp(Number(set.duration)||0,0,LIMITS.duration))} min</output>
+          <output aria-live="polite">${formatWeightValue(clamp(Number(set.duration)||0,0,LIMITS.duration))} ${routineItemUnit(item,exercise)==='sec'?'sec':'min'}</output>
           <button class="routine-step" type="button" data-aw-action="dur-inc" data-exercise="${exercise.id}" data-aw-index="${index}" aria-label="Increase duration"${skipped?' disabled':''}>${icon('plus')}</button>
         </div>
         <div class="routine-stepper" role="group" aria-label="Distance for interval ${index+1} of ${esc(exercise.name)}">
@@ -3046,11 +3050,59 @@ function renderInstructions() {
   const steps = exercise.instruction_steps?.en;
   const description = exercise.description ? String(exercise.description).trim() : '';
   const descriptionHtml = description ? `<p class="instructions">${esc(description)}</p>` : '';
+  const toggle = $('#modalInstructionsToggle'), list = $('#modalInstructions'), heading = $('#modalInstructionsHeading');
+  const hasContent = Boolean((Array.isArray(steps) && steps.length) || description);
   if (Array.isArray(steps) && steps.length) {
-    $('#modalInstructions').innerHTML = `<div class="step-list">${steps.map((step, index) => `<div class="step"><span>${index + 1}</span><div>${esc(step)}</div></div>`).join('')}</div>${descriptionHtml}`;
-    return;
+    if (list) list.innerHTML = `<div class="step-list">${steps.map((step, index) => `<div class="step"><span>${index + 1}</span><div>${esc(step)}</div></div>`).join('')}</div>${descriptionHtml}`;
+  } else {
+    if (list) list.innerHTML = description ? descriptionHtml : '';
   }
-  $('#modalInstructions').innerHTML = description ? descriptionHtml : '<p class="instructions">Instructions are not available.</p>';
+  if (toggle) toggle.hidden = !hasContent;
+  if (heading) heading.hidden = true;
+  if (list) list.hidden = true;
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+}
+const MUSCLE_MAP_SIDES={
+  abs:'front',chest:'front',obliques:'front',quadriceps:'front',serratus:'front',biceps:'front',knees:'front',tibialis:'front',
+  'upper-chest':'front','lower-chest':'front','inner-quad':'front','outer-quad':'front','upper-abs':'front','lower-abs':'front','front-deltoid':'front','hip-flexors':'front',
+  'upper-back':'back','lower-back':'back',gluteal:'back',hamstring:'back',calves:'back',triceps:'back',rhomboids:'back','rotator-cuff':'back','rear-deltoid':'back','upper-trapezius':'back','lower-trapezius':'back',
+  deltoids:'both',trapezius:'both',forearm:'both',hands:'both',feet:'both',ankles:'both',neck:'both',adductors:'both'
+};
+function ensureModalMuscleMaps(gender){
+  return ensureMuscleMaps('modal','modalMuscleMapFrame','modalMuscleMapFront','modalMuscleMapBack',gender);
+}
+function renderModalMuscleMap(exercise){
+  const wrap=$('#modalMuscleMap');
+  if(!wrap)return;
+  const primary=TARGET_TO_MUSCLE[String(exercise?.target||'').toLowerCase()];
+  const regions=new Map();
+  if(primary)regions.set(primary,1);
+  for(const raw of (Array.isArray(exercise?.secondary_muscles)?exercise.secondary_muscles:[])){
+    const muscle=SECONDARY_MUSCLE_TO_MAP[String(raw||'').toLowerCase()];
+    if(muscle&&muscle!==primary&&!regions.has(muscle))regions.set(muscle,.5);
+  }
+  if(!window.MuscleMapLib||!regions.size){wrap.hidden=true;return;}
+  const gender=genderForMuscleMaps();
+  const maps=ensureModalMuscleMaps(gender);
+  if(!maps){wrap.hidden=true;return;}
+  syncMuscleMaps(maps,gender);
+  let showFront=false,showBack=false;
+  for(const muscle of regions.keys()){
+    const side=MUSCLE_MAP_SIDES[muscle]||'both';
+    if(side!=='back')showFront=true;
+    if(side!=='front')showBack=true;
+  }
+  const front=$('#modalMuscleMapFront'),back=$('#modalMuscleMapBack'),frame=$('#modalMuscleMapFrame');
+  if(front)front.hidden=!showFront;
+  if(back)back.hidden=!showBack;
+  if(frame)frame.classList.toggle('single-view',showFront!==showBack);
+  wrap.hidden=false;
+  maps.front.resize();
+  maps.back.resize();
+  const rgb=ACCENTS[activeAccent].rgb;
+  const entries=[...regions.entries()].map(([muscle,intensity])=>({muscle,intensity,color:`rgba(${rgb},${intensity>=1?1:.6})`}));
+  maps.front.setHeatmap(entries,{});
+  maps.back.setHeatmap(entries,{});
 }
 function updateModalProgress(exerciseId) {
   const latest = latestLogFor(exerciseId);
@@ -3104,6 +3156,7 @@ function openModal(exercise, returnFocus = document.activeElement) {
   syncMediaPill(false);
 
   renderInstructions();
+  renderModalMuscleMap(state.activeExercise);
   updateModalProgress(exercise.id);
   syncLikeButton($('#modalLikeExercise'), state.saved.has(exercise.id));
   const modal=document.querySelector('.modal'),visual=document.querySelector('.modal-visual');
@@ -3132,6 +3185,21 @@ $('#modalExpandBtn')?.addEventListener('click', () => {
     button.setAttribute('aria-label', expanded ? 'Restore size' : 'View full size');
     button.querySelector('use')?.setAttribute('href', expanded ? '#icon-minimize' : '#icon-expand');
   }
+});
+
+$('#modalInstructionsToggle')?.addEventListener('click', () => {
+  const list = $('#modalInstructions'), btn = $('#modalInstructionsToggle'), heading = $('#modalInstructionsHeading');
+  if (!list || !btn || btn.hidden) return;
+  const willOpen = list.hidden;
+  list.hidden = !willOpen;
+  btn.setAttribute('aria-expanded', String(willOpen));
+  if (heading) heading.hidden = !willOpen;
+  const map = $('#modalMuscleMap');
+  if (map && !btn.hidden) {
+    map.hidden = willOpen;
+    if (!willOpen) syncMuscleMaps(muscleMapCaches.get('modal'), genderForMuscleMaps());
+  }
+  if (willOpen) list.scrollIntoView({ block: 'nearest' });
 });
 
 function closeModal(restoreFocus = true) {
@@ -3196,8 +3264,10 @@ function progressLogToText(log){
   if(isTimedCardioLog(log)){
     const intervals=Number(log.intervals)||Math.max(Array.isArray(log.setDurations)?log.setDurations.length:0,Array.isArray(log.setDistances)?log.setDistances.length:0,1);
     const durUnit=log.durUnit==='min'||log.durUnit==='sec'?log.durUnit:(isTimedCardioExercise(exercise)?'min':'sec');
+    /* Stored durations are minutes; sec-unit logs are exported unit-native (seconds). */
+    const scale=durUnit==='sec'?60:1;
     const durations=Array.isArray(log.setDurations)?log.setDurations:[];
-    const durationsText=durations.map(value=>Math.round((Number(value)||0)*100)/100).filter(value=>value>0).join(', ');
+    const durationsText=durations.map(value=>Math.round((Number(value)||0)*scale*100)/100).filter(value=>value>0).join(', ');
     const distances=Array.isArray(log.setDistances)?log.setDistances:[];
     const distancesText=distances.map(value=>Math.round((Number(value)||0)*100)/100).filter(value=>value>0).join(', ');
     return[`exercise: ${JSON.stringify(title(exercise?.name||'Unknown exercise'))}`,`exerciseId: #${log.exerciseId}`,`date: ${log.date}`,`int: ${intervals}`,...(durationsText?[`dur(${durUnit}): ${durationsText}`]:[]),...(distancesText?[`dist(km): ${distancesText}`]:[]),...(String(log.notes||'').replace(/\s+/g,' ').trim()?[`notes: ${String(log.notes||'').replace(/\s+/g,' ').trim()}`]:[]),`id: ${exportId}`].join('\n');
@@ -3801,15 +3871,17 @@ function renderDashboardAllTimeChart(logs) {
   };
   chart.querySelectorAll('.chart-hit').forEach((item) => { item.addEventListener('click', () => showTooltip(Number(item.dataset.index))); item.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showTooltip(Number(item.dataset.index)); } }); });
 }
-let dashboardMuscleMaps=null;
 function muscleMapStyle(lib){
   const base=(typeof lib.resolveStyle==='function'?lib.resolveStyle('neon'):{});
   return{...base,defaultFillColor:'#353535',hairColor:'#2a2a2a',headColor:'#454545',strokeWidth:0,shadowRadius:0};
 }
-function ensureDashboardMuscleMaps(gender){
-  const lib=window.MuscleMapLib,frame=$('#dashboardMuscleMapFrame');
+/* Shared muscle-map scaffolding: one cache + factory + sync helper for every surface
+   (dashboard stats, exercise modal). Caches are keyed by surface name. */
+const muscleMapCaches=new Map();
+function ensureMuscleMaps(surface,frameId,frontId,backId,gender){
+  const lib=window.MuscleMapLib,frame=$('#'+frameId);
   if(!lib||!frame)return null;
-  if(dashboardMuscleMaps)return dashboardMuscleMaps;
+  if(muscleMapCaches.has(surface))return muscleMapCaches.get(surface);
   try{
     const style=muscleMapStyle(lib);
     const make=(id,side)=>{
@@ -3817,21 +3889,15 @@ function ensureDashboardMuscleMaps(gender){
       if(!el)return null;
       return new lib.MuscleMapWidget(el,{gender,side,style,interactive:false});
     };
-    const front=make('dashboardMuscleMapFront','front'),back=make('dashboardMuscleMapBack','back');
+    const front=make(frontId,'front'),back=make(backId,'back');
     if(!front||!back)throw new Error('missing muscle map container');
-    dashboardMuscleMaps={front,back,gender};
-  }catch(error){console.warn('Muscle map init failed',error);dashboardMuscleMaps=null;}
-  return dashboardMuscleMaps;
+    const maps={front,back,gender};
+    muscleMapCaches.set(surface,maps);
+    return maps;
+  }catch(error){console.warn(`Muscle map init failed (${surface})`,error);return null;}
 }
-const mapTierColor=r=>{const rgb=ACCENTS[activeAccent].rgb;return r>0.75?`rgba(${rgb},1)`:r>0.5?`rgba(${rgb},.6)`:r>0.25?`rgba(${rgb},.3)`:null};
-function renderDashboardMuscleMap(muscleSets){
-  const wrap=$('#dashboardMuscleMapWrap');
-  if(!wrap)return;
-  if(!window.MuscleMapLib||!muscleSets.size){wrap.hidden=true;return;}
-  wrap.hidden=false;
-  const gender=(state.fuel.profile&&state.fuel.profile.sex)==='f'?'female':'male';
-  const maps=ensureDashboardMuscleMaps(gender);
-  if(!maps){wrap.hidden=true;return;}
+function syncMuscleMaps(maps,gender){
+  if(!maps)return;
   if(maps.gender!==gender){
     maps.front.setGender(gender);
     maps.back.setGender(gender);
@@ -3839,6 +3905,18 @@ function renderDashboardMuscleMap(muscleSets){
   }
   maps.front.resize();
   maps.back.resize();
+}
+function genderForMuscleMaps(){return (state.fuel.profile&&state.fuel.profile.sex)==='f'?'female':'male'}
+const mapTierColor=r=>{const rgb=ACCENTS[activeAccent].rgb;return r>0.75?`rgba(${rgb},1)`:r>0.5?`rgba(${rgb},.6)`:r>0.25?`rgba(${rgb},.3)`:null};
+function renderDashboardMuscleMap(muscleSets){
+  const wrap=$('#dashboardMuscleMapWrap');
+  if(!wrap)return;
+  if(!window.MuscleMapLib||!muscleSets.size){wrap.hidden=true;return;}
+  wrap.hidden=false;
+  const gender=genderForMuscleMaps();
+  const maps=ensureMuscleMaps('dashboard','dashboardMuscleMapFrame','dashboardMuscleMapFront','dashboardMuscleMapBack',gender);
+  if(!maps){wrap.hidden=true;return;}
+  syncMuscleMaps(maps,gender);
   const maxSets=Math.max(1,...muscleSets.values());
   const entries=[...muscleSets.entries()].map(([muscle,sets])=>{
     const r=sets/maxSets;
