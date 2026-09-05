@@ -510,7 +510,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   min-width: 240px;
   max-width: calc(100vw - 12px);
 }
-.exercise-tag-menu .tag-menu-input-wrap { display: flex; align-items: center; gap: 5px; padding: 2px 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.exercise-tag-menu .tag-menu-input-wrap { display: flex; align-items: center; gap: 5px; padding: 2px 4px 6px; }
 .exercise-tag-menu input {
   flex: 1 1 auto;
   min-width: 0;
@@ -537,7 +537,7 @@ body[data-mobile-tab="plan"] #planSwitch:not([hidden]) {
   appearance: none;
 }
 .exercise-tag-submit .icon { width: 16px; height: 16px; color: currentColor; }
-.exercise-tag-options { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px 4px; }
+.exercise-tag-options { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
 .exercise-tag-options .routine-menu-empty { width: 100%; padding: 6px 8px; }
 .exercise-tag-options [data-tag-option] {
   width: auto;
@@ -1646,6 +1646,8 @@ button.settings-row-danger:focus-visible { color: var(--danger); }
   .pill { flex: 0 0 auto; min-height: 30px; padding: 0 14px; color: var(--text); background: #1c1c1e; border: none; border-radius: 999px; font-size: 12px; font-weight: var(--weight-medium); appearance: none; cursor: pointer; transition: color .15s ease, background-color .15s ease; }
   .pill[aria-pressed="true"] { background: var(--accent); color: #ffffff; }
   .pill:disabled { opacity: .35; cursor: default; }
+  .pill-tag { display: inline-flex; align-items: center; gap: 5px; }
+  .pill-tag .icon { width: 11px; height: 11px; flex-shrink: 0; stroke-width: 2.4; }
   .mobile-search-reset-btn {
     position: absolute;
     right: 48px;

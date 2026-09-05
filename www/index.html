@@ -63,7 +63,6 @@
   <symbol id="icon-archive" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
   <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
   <symbol id="icon-minimize" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></symbol>
-  <symbol id="icon-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
 </svg>
 
 <div class="app">
@@ -86,7 +85,6 @@
             <div class="pill-row" data-group="category"></div>
             <div class="pill-row" data-group="target"></div>
             <div class="pill-row" data-group="equipment"></div>
-            <div class="pill-row" data-group="tags"></div>
           </div>
         </header>
 
@@ -792,17 +790,13 @@
                 <button type="button" data-editor-mode="hidden" aria-pressed="false">Hidden</button>
               </div>
             </div>
-            <div class="settings-row">
-              <span class="settings-row-main"><span>Tags</span></span>
-              <div class="seg-control" data-editor-seg="tags" role="group" aria-label="Tags row visibility">
-                <button type="button" data-editor-mode="default" aria-pressed="false">Default</button>
-                <button type="button" data-editor-mode="pin" aria-pressed="false">Pin</button>
-                <button type="button" data-editor-mode="hidden" aria-pressed="false">Hidden</button>
-              </div>
-            </div>
             <button type="button" class="settings-row settings-row-action" data-editor-row="toggles">
               <span class="settings-row-main"><span>Liked / Logged buttons</span></span>
               <span class="settings-row-value" id="togglesHostValue"></span>
+            </button>
+            <button type="button" class="settings-row settings-row-action" data-editor-row="tagsHost">
+              <span class="settings-row-main"><span>Tags</span></span>
+              <span class="settings-row-value" id="tagsHostValue"></span>
             </button>
           </div>
         </section>
@@ -921,8 +915,8 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="routine-menu exercise-tag-menu" id="exerciseTagMenu" role="menu" aria-label="Exercise tags" hidden>
-  <div class="tag-menu-input-wrap"><input id="exerciseTagInput" type="text" maxlength="24" placeholder="New tag" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="New tag"><button type="button" class="exercise-tag-submit" id="exerciseTagSubmit" aria-label="Add tag"><svg class="icon"><use href="#icon-plus"/></svg></button></div>
   <div id="exerciseTagOptions" class="exercise-tag-options"></div>
+  <div class="tag-menu-input-wrap"><input id="exerciseTagInput" type="text" maxlength="24" placeholder="New tag" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="New tag"><button type="button" class="exercise-tag-submit" id="exerciseTagSubmit" aria-label="Add tag"><svg class="icon"><use href="#icon-plus"/></svg></button></div>
 </div>
 <script src="app.js" defer></script>
 </body>

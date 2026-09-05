@@ -323,8 +323,7 @@ function loadFuelState() {
   const fallback = {
     profile: {
       age: 22, sex: 'm', heightCm: 178, currentWeightKg: 75.0, startWeightKg: 75.0, goalWeightKg: 78.0,
-      activity: 1.55, strategy: 250, proteinRate: 2.0, dailyCalorieGoal: 2975, dailyWaterMl: 3375,
-      macros: { p: 150, c: 411, f: 83 },
+      activity: 1.55, strategy: 250, proteinRate: 2.0,
       overrides: {}
     },
     foodDb: JSON.parse(JSON.stringify(DEFAULT_FOOD_DB)),
@@ -467,7 +466,7 @@ function loadProgressLogs(){
   });
 }
 function normalizeProgressPreferences(value){const firstDay=Number(value?.firstDay);const defaultView=['week','month','all'].includes(value?.defaultView)?value.defaultView:'week';return{firstDay:[0,1,6].includes(firstDay)?firstDay:1,defaultView}}
-function normalizePillRowModes(value){const modes=['default','pin','hidden'],keys=['routine','category','target','equipment','tags'],out={};keys.forEach(key=>{out[key]=modes.includes(value?.[key])?value[key]:'default'});out.toggles=['routine','category','target','equipment','tags'].includes(value?.toggles)?value.toggles:'equipment';return out}
+function normalizePillRowModes(value){const modes=['default','pin','hidden'],keys=['routine','category','target','equipment'],out={};keys.forEach(key=>{out[key]=modes.includes(value?.[key])?value[key]:'default'});out.toggles=['routine','category','target','equipment'].includes(value?.toggles)?value.toggles:'equipment';out.tagsHost=['routine','category','target','equipment'].includes(value?.tagsHost)?value.tagsHost:'equipment';return out}
 function roundRestDuration(value,fallback){const target=Math.round(Number(value)/5)*5;return Number.isFinite(target)?clamp(target,30,180):fallback}
 function normalizeRestPrefs(value){return{enabled:value?.enabled===true,betweenSets:roundRestDuration(value?.betweenSets,60),betweenExercise:roundRestDuration(value?.betweenExercise,90)}}
 
@@ -586,11 +585,7 @@ const FS_ADAPTER = (() => {
   return {
     get isNative(){ return isNativeNow(); },
     async readFile(folder, name) { return isNativeNow() ? nativeReadFile(folder, name) : webReadFile(folder, name); },
-    async writeFile(folder, name, content) { return isNativeNow() ? nativeWriteFile(folder, name, content) : webWriteFile(folder, name, content); },
-    exists(folder, name) {
-      if (isNativeNow()) return nativeReadFile(folder, name).then(v => v !== null).catch(() => false);
-      return webReadFile(folder, name) !== null;
-    }
+    async writeFile(folder, name, content) { return isNativeNow() ? nativeWriteFile(folder, name, content) : webWriteFile(folder, name, content); }
   };
 })();
 
@@ -939,8 +934,8 @@ function parseConfigMd(text) {
       else if (key === 'pill-category') cfg.prefs.pillCategory = ['default','pin','hidden'].includes(raw) ? raw : 'default';
       else if (key === 'pill-target') cfg.prefs.pillTarget = ['default','pin','hidden'].includes(raw) ? raw : 'default';
       else if (key === 'pill-equipment') cfg.prefs.pillEquipment = ['default','pin','hidden'].includes(raw) ? raw : 'default';
-      else if (key === 'pill-tags') cfg.prefs.pillTags = ['default','pin','hidden'].includes(raw) ? raw : 'default';
-      else if (key === 'pill-toggles') cfg.prefs.pillToggles = ['routine','category','target','equipment','tags'].includes(raw) ? raw : 'equipment';
+      else if (key === 'pill-tags-host') cfg.prefs.pillTagsHost = ['routine','category','target','equipment'].includes(raw) ? raw : 'equipment';
+      else if (key === 'pill-toggles') cfg.prefs.pillToggles = ['routine','category','target','equipment'].includes(raw) ? raw : 'equipment';
     }
   }
   return cfg;
@@ -1098,7 +1093,7 @@ function configToMd() {
   lines.push(`pill-category: ${state.pillRowModes.category}`);
   lines.push(`pill-target: ${state.pillRowModes.target}`);
   lines.push(`pill-equipment: ${state.pillRowModes.equipment}`);
-  lines.push(`pill-tags: ${state.pillRowModes.tags}`);
+  lines.push(`pill-tags-host: ${state.pillRowModes.tagsHost}`);
   lines.push(`pill-toggles: ${state.pillRowModes.toggles}`);
   lines.push('', '## Custom Exercises');
   for (const item of CUSTOM_EXERCISES) {
@@ -1152,10 +1147,6 @@ function applyConfigToState(cfg) {
     if (cfg.profile.strategy !== undefined) fp.strategy = cfg.profile.strategy;
     if (cfg.profile.proteinRate !== undefined) fp.proteinRate = cfg.profile.proteinRate;
     if (cfg.overrides && Object.keys(cfg.overrides).length) fp.overrides = { ...fp.overrides, ...cfg.overrides };
-    const targets = calculatedFuelTargets(fp);
-    fp.dailyCalorieGoal = targets.cals;
-    fp.dailyWaterMl = targets.water;
-    fp.macros = { p: targets.p, c: targets.c, f: targets.f };
   }
   if (cfg.schedule && Object.keys(cfg.schedule).length) {
     const nameToId = {};
@@ -1178,7 +1169,7 @@ function applyConfigToState(cfg) {
     if (cfg.prefs.pillCategory) state.pillRowModes.category = cfg.prefs.pillCategory;
     if (cfg.prefs.pillTarget) state.pillRowModes.target = cfg.prefs.pillTarget;
     if (cfg.prefs.pillEquipment) state.pillRowModes.equipment = cfg.prefs.pillEquipment;
-    if (cfg.prefs.pillTags) state.pillRowModes.tags = cfg.prefs.pillTags;
+    if (cfg.prefs.pillTagsHost) state.pillRowModes.tagsHost = cfg.prefs.pillTagsHost;
     if (cfg.prefs.pillToggles) state.pillRowModes.toggles = cfg.prefs.pillToggles;
   }
   if (cfg.exerciseTags && Object.keys(cfg.exerciseTags).length) {
@@ -1466,7 +1457,7 @@ function migrateLegacyData() {
     overrides: (profile.overrides && typeof profile.overrides === 'object') ? profile.overrides : {},
     schedule: {},
     liked: legacySaved,
-    prefs: { accent: legacyAccent, weekStart: legacyProgressPrefs.firstDay, defaultView: legacyProgressPrefs.defaultView, workoutReminder: legacyReminder, restEnabled: legacyRestPrefs.enabled, restBetweenSets: legacyRestPrefs.betweenSets, restBetweenExercises: legacyRestPrefs.betweenExercise, pillRoutine: legacyPillRowModes.routine, pillCategory: legacyPillRowModes.category, pillTarget: legacyPillRowModes.target, pillEquipment: legacyPillRowModes.equipment, pillToggles: legacyPillRowModes.toggles }
+    prefs: { accent: legacyAccent, weekStart: legacyProgressPrefs.firstDay, defaultView: legacyProgressPrefs.defaultView, workoutReminder: legacyReminder, restEnabled: legacyRestPrefs.enabled, restBetweenSets: legacyRestPrefs.betweenSets, restBetweenExercises: legacyRestPrefs.betweenExercise, pillRoutine: legacyPillRowModes.routine, pillCategory: legacyPillRowModes.category, pillTarget: legacyPillRowModes.target, pillEquipment: legacyPillRowModes.equipment, pillTagsHost: legacyPillRowModes.tagsHost, pillToggles: legacyPillRowModes.toggles }
   };
   for (let i = 0; i < 7; i++) {
     if (schedule[i] && routines.find(r => r.id === schedule[i])) config.schedule[i] = routines.find(r => r.id === schedule[i]).name;
@@ -1820,7 +1811,6 @@ function submitExerciseTagInput(){
   const input=$('#exerciseTagInput');
   if(!input)return;
   createExerciseTag(exercise.id,input.value);
-  input.focus({preventScroll:true});
 }
 $('#modalTagButton').addEventListener('click',(event)=>{
   const menu=$('#exerciseTagMenu'),button=$('#modalTagButton');
@@ -1829,10 +1819,10 @@ $('#modalTagButton').addEventListener('click',(event)=>{
   if(willOpen){
     renderModalTagMenu();
     positionMenuBetween(menu,button,{alignRight:true,minWidth:240});
-    requestAnimationFrame(()=>$('#exerciseTagInput')?.focus({preventScroll:true}));
   }
 });
 $('#exerciseTagMenu').addEventListener('click',(event)=>{
+  event.stopPropagation();
   const option=event.target.closest('[data-tag-option]');
   if(!option)return;
   const exercise=state.activeExercise;
@@ -3121,7 +3111,6 @@ function openModal(exercise, returnFocus = document.activeElement) {
   if(visual)visual.hidden=Boolean(exercise.custom);
   resetModalScrollPosition();
   openOverlay('modal', returnFocus);
-  resetModalScrollPosition();
 }
 
 $('.modal-visual')?.addEventListener('click', (event) => {
@@ -4231,42 +4220,49 @@ const FILTER_PILL_GROUPS=[
   ['category',null,'All parts'],
   ['target',null,'All muscles'],
   ['equipment',null,'Any equipment'],
-  ['tags',null,'All tags'],
 ];
+function tagPillChips(){
+  const currentLower=String(state.tags||'').toLowerCase();
+  const pillCtx=buildFilterContext('tags');
+  const available=new Set();
+  for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))for(const tag of exerciseTagsOf(exercise.id))available.add(tag.toLowerCase());
+  const chips=tagsIndex().map(entry=>entry.label).map(value=>{
+    const valueLower=value.toLowerCase();
+    const isEnabled=available.has(valueLower)||currentLower===valueLower;
+    return{isDisabled:!isEnabled,html:`<button type="button" class="pill pill-tag" data-pill-group="tags" data-value="${esc(value)}" aria-pressed="${String(currentLower===valueLower)}"${isEnabled?'':' disabled'}><svg class="icon" aria-hidden="true"><use href="#icon-hash"/></svg>${esc(value)}</button>`};
+  });
+  chips.sort((a,b)=>Number(a.isDisabled)-Number(b.isDisabled));
+  return chips;
+}
 function renderFilterPills(){
   const wrap=$('#filterPills');
   if(!wrap)return;
   const expanded=Boolean(state.pillRowsExpanded);
+  const tagsHost=effectiveTagsHost();
   for(const[key]of FILTER_PILL_GROUPS){
     const row=wrap.querySelector(`[data-group="${key}"]`);
     if(!row)continue;
     const mode=state.pillRowModes?.[key]||'default';
     if(mode==='hidden'||(!expanded&&mode!=='pin')){row.hidden=true;row.innerHTML='';continue;}
     const current=key==='routine'?state.routineFilter:state[key];
-    const currentLower=key==='tags'?String(current||'').toLowerCase():null;
     let values;
     let available=null;
     if(key==='routine'){
       values=orderedRoutines().filter(routine=>routine.items.length).map(routine=>[routine.id,routine.name]);
-    }else if(key==='tags'){
-      values=tagsIndex().map(entry=>[entry.label,entry.label]);
     }else{
       values=uniqueValues(key).map(value=>[value,title(value)]);
     }
     if(key!=='routine'){
       const pillCtx=buildFilterContext(key);
       available=new Set();
-      if(key==='tags'){
-        for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))for(const tag of exerciseTagsOf(exercise.id))available.add(tag.toLowerCase());
-      }else{
-        for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))available.add(exercise[key]);
-      }
+      for(const exercise of EXERCISES)if(matchesFiltered(exercise,pillCtx))available.add(exercise[key]);
     }
     const chips=[];
     if(key===effectiveToggleHost()){
       const loggedIds=new Set(state.progress.logs.map(log=>log.exerciseId));
       const toggleCtx=buildFilterContext();
       [['savedOnly','Liked',exercise=>state.saved.has(exercise.id)],['loggedOnly','Logged',exercise=>loggedIds.has(exercise.id)]].forEach(([toggleKey,label,has])=>{
+        if(!state[toggleKey]&&!EXERCISES.some(has))return;
         let count=0;
         if(!state[toggleKey])for(const exercise of EXERCISES){if(matchesFiltered(exercise,toggleCtx)&&has(exercise)){count++;break}}
         const isDisabled=!state[toggleKey]&&count===0;
@@ -4274,17 +4270,15 @@ function renderFilterPills(){
       });
     }
     for(const[value,label]of values){
-      const valueLower=String(value).toLowerCase();
-      const isEnabled=key==='tags'
-        ?!available||available.has(valueLower)||currentLower===valueLower
-        :!available||available.has(value)||current===value;
+      const isEnabled=!available||available.has(value)||current===value;
       chips.push({isDisabled:!isEnabled,html:`<button type="button" class="pill" data-pill-group="${key}" data-value="${esc(value)}" aria-pressed="${String(current===value)}"${isEnabled?'':' disabled'}>${esc(label)}</button>`});
     }
     const toggleChips=chips.filter(chip=>chip.isToggle);
     const valueChips=chips.filter(chip=>!chip.isToggle);
     valueChips.sort((a,b)=>Number(a.isDisabled)-Number(b.isDisabled));
-    row.hidden=!chips.length;
-    row.innerHTML=[...toggleChips,...valueChips].map(chip=>chip.html).join('');
+    const tagChips=key===tagsHost?tagPillChips():[];
+    row.hidden=!chips.length&&!tagChips.length;
+    row.innerHTML=[...toggleChips,...tagChips,...valueChips].map(chip=>chip.html).join('');
   }
 }
 function syncFilterPanelVisibility(){
@@ -4300,8 +4294,10 @@ function syncFilterPanelVisibility(){
     if(mode!=='pin')return false;
     if(key==='routine'){
       const hasRoutines=orderedRoutines().some(routine=>routine.items.length>0);
-      const hostsToggles=effectiveToggleHost()==='routine';
-      return hasRoutines||hostsToggles;
+      if(hasRoutines)return true;
+      if(effectiveToggleHost()!=='routine')return false;
+      const loggedIds=new Set(state.progress.logs.map(log=>log.exerciseId));
+      return state.savedOnly||state.loggedOnly||state.saved.size>0||loggedIds.size>0;
     }
     return true;
   });
@@ -4333,12 +4329,16 @@ $('#filterPills').addEventListener('click',(event)=>{
   state.limit=DEFAULTS.pageSize;
   render();
 });
-const PILL_ROW_LABELS={routine:'Routines',category:'Body parts',target:'Target muscles',equipment:'Equipments',tags:'Tags'};
-const PILL_ROW_KEYS=['routine','category','target','equipment','tags'];
-function pillRowHosts(){return PILL_ROW_KEYS.filter(key=>state.pillRowModes[key]!=='hidden')}
+const PILL_ROW_LABELS={routine:'Routines',category:'Body parts',target:'Target muscles',equipment:'Equipments'};
+const PILL_ROW_KEYS=['routine','category','target','equipment'];
+function hostableRows(){return PILL_ROW_KEYS.filter(key=>state.pillRowModes[key]!=='hidden')}
 function effectiveToggleHost(){
-  const hosts=pillRowHosts();
+  const hosts=hostableRows();
   return hosts.includes(state.pillRowModes.toggles)?state.pillRowModes.toggles:hosts[0]||null;
+}
+function effectiveTagsHost(){
+  const hosts=hostableRows();
+  return hosts.includes(state.pillRowModes.tagsHost)?state.pillRowModes.tagsHost:hosts[0]||null;
 }
 function savePillRowModes(){writeStorage(STORAGE_KEYS.pillRowModes,state.pillRowModes);if(VAULT.loaded)saveConfigToVault();}
 function renderPillRowEditor(){
@@ -4359,6 +4359,13 @@ function renderPillRowEditor(){
     const togglesRow=hostValue.closest('[data-editor-row]');
     if(togglesRow)togglesRow.setAttribute('aria-label','Liked/Logged buttons placement: '+(host?PILL_ROW_LABELS[host]+' row':'nowhere')+'. Click to change.');
   }
+  const tagsHostValue=$('#tagsHostValue');
+  if(tagsHostValue){
+    const tagsHost=effectiveTagsHost();
+    tagsHostValue.textContent=tagsHost?PILL_ROW_LABELS[tagsHost]:'Hidden';
+    const tagsRow=tagsHostValue.closest('[data-editor-row]');
+    if(tagsRow)tagsRow.setAttribute('aria-label','Tags placement: '+(tagsHost?PILL_ROW_LABELS[tagsHost]+' row':'nowhere')+'. Click to change.');
+  }
   const expandable=PILL_ROW_KEYS.some(key=>state.pillRowModes[key]==='default');
   const toggleBtn=$('#filterPillsToggle');
   if(toggleBtn)toggleBtn.disabled=!expandable;
@@ -4375,16 +4382,28 @@ $('#pillRowEditor').addEventListener('click',(event)=>{
     if(!$('#filterPills').hidden)renderFilterPills();
     return;
   }
-  if(!event.target.closest('[data-editor-row="toggles"]'))return;
-  const hosts=pillRowHosts();
-  if(hosts.length){
-    const index=hosts.indexOf(state.pillRowModes.toggles);
-    state.pillRowModes.toggles=index===-1||index===hosts.length-1?hosts[0]:hosts[index+1];
+  if(event.target.closest('[data-editor-row="toggles"]')){
+    const hosts=hostableRows();
+    if(hosts.length){
+      const index=hosts.indexOf(state.pillRowModes.toggles);
+      state.pillRowModes.toggles=index===-1||index===hosts.length-1?hosts[0]:hosts[index+1];
+    }
+    savePillRowModes();
+    renderPillRowEditor();
+    syncFilterPanelVisibility();
+    if(!$('#filterPills').hidden)renderFilterPills();
+    return;
   }
-  savePillRowModes();
-  renderPillRowEditor();
-  syncFilterPanelVisibility();
-  if(!$('#filterPills').hidden)renderFilterPills();
+  if(event.target.closest('[data-editor-row="tagsHost"]')){
+    const hosts=hostableRows();
+    const index=hosts.indexOf(state.pillRowModes.tagsHost);
+    state.pillRowModes.tagsHost=index===-1||index===hosts.length-1?hosts[0]:hosts[index+1];
+    savePillRowModes();
+    renderPillRowEditor();
+    syncFilterPanelVisibility();
+    if(!$('#filterPills').hidden)renderFilterPills();
+    return;
+  }
 });
 const sortMenu=$('#mobileSortMenu'),sortBtn=$('#mobileSortBtn');
 function renderSortMenu(){
@@ -6022,15 +6041,10 @@ function handleProfileAndTargetSubmit(e) {
   const strategy = parseInt(document.getElementById('inStrategy').value) || 0;
   const proteinRate = parseFloat(document.getElementById('inProteinRate').value) || 2.0;
 
-  const targets = calculatedFuelTargets({ age, sex, heightCm, currentWeightKg, activity, strategy, proteinRate });
-
   const prevSex = state.fuel.profile.sex;
   state.fuel.profile = {
     age, sex, heightCm, currentWeightKg, startWeightKg, goalWeightKg,
     activity, strategy, proteinRate,
-    dailyCalorieGoal: targets.cals,
-    dailyWaterMl: targets.water,
-    macros: { p: targets.p, c: targets.c, f: targets.f },
     overrides: { ...fuelOverrides() }
   };
 
